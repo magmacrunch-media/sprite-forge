@@ -894,3 +894,52 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
     background: var(--rose);
     color: var(--bg);
 }
+
+/* ── SPRITES panel ────────────────────────────────────────
+   Both builds. The row for the sprite being edited carries the accent, since
+   the canvas gives no other clue which of them you are looking at. */
+.sprite-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 180px;
+    overflow-y: auto;
+    margin-bottom: 6px;
+}
+
+.sprite-row {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    background: rgba(0, 0, 0, 0.25);
+    border: none;
+    border-left: 2px solid var(--border);
+    padding: 0.3rem 0.4rem;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sprite-row:hover { color: var(--text); border-left-color: var(--dim); }
+
+.sprite-row.active {
+    color: var(--bg);
+    background: var(--rose);
+    border-left-color: var(--cyan);
+}
+
+#sprite-name {
+    flex: 1;
+    min-width: 0;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.3rem 0.4rem;
+}
+
+#sprite-name:focus { outline: 1px solid var(--accent); }
+#sprite-name::placeholder { color: var(--dim); }

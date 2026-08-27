@@ -125,7 +125,32 @@ window.SpriteForge.project = (function () {
                 });
             });
         });
+        // Checked after the per-sprite pass so a file with both problems
+        // reports both. Only the later duplicate is named, so three sprites
+        // called "dag" produce two errors rather than three.
+        const names = (o.sprites || []).map(s => s && s.name);
+        names.forEach((n, i) => {
+            if (n && names.indexOf(n) !== i)
+                errs.push(`sprite "${n}": a second sprite has this name, and names become filenames on export`);
+        });
+
         return errs;
+    }
+
+    /**
+     * A name not already taken, by appending a number.
+     *
+     * Sprite names are not decoration: engines.js turns one into `<name>.png`
+     * in a game repo, so two sprites sharing a name would silently overwrite
+     * each other on export and the second would win.
+     */
+    function uniqueName(base, taken) {
+        const used = new Set(taken || []);
+        const stem = String(base == null ? '' : base).trim() || 'sprite';
+        if (!used.has(stem)) return stem;
+        let n = 2;
+        while (used.has(`${stem}-${n}`)) n++;
+        return `${stem}-${n}`;
     }
 
     /** Plain object -> project. Throws with every problem listed, not just the first. */
@@ -147,7 +172,20 @@ window.SpriteForge.project = (function () {
         };
     }
 
-    function stringify(p) { return JSON.stringify(serialize(p), null, 1) + '\n'; }
+    /**
+     * Project -> text, refusing to write anything that could not be read back.
+     *
+     * validate() runs on the way in via parse(), and it has to run on the way
+     * out too or the two directions can disagree: duplicate sprite names were
+     * saveable and then unopenable, which turns a save into a way to lose a
+     * project rather than keep one.
+     */
+    function stringify(p) {
+        const o = serialize(p);
+        const errs = validate(o);
+        if (errs.length) throw new Error('cannot save this project:\n  ' + errs.join('\n  '));
+        return JSON.stringify(o, null, 1) + '\n';
+    }
 
     /**
      * Text -> project. Branches on `format` so an old file opens rather than
@@ -162,5 +200,5 @@ window.SpriteForge.project = (function () {
         return deserialize(o);
     }
 
-    return { FORMAT, ALPHABET, TRANSPARENT, blank, newSprite, serialize, deserialize, stringify, parse, validate };
+    return { FORMAT, ALPHABET, TRANSPARENT, blank, newSprite, uniqueName, serialize, deserialize, stringify, parse, validate };
 })();

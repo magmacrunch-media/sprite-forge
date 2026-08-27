@@ -68,15 +68,26 @@
 
     /** The editor's contents as a whole project. One sprite today; the sprite
      *  list will make this many, and the file format already allows it. */
+    const spritesUI = () => window.SpriteForge.spritesUI;
+
     function currentProject() {
-        const name = currentPath
-            ? baseName(currentPath).replace(/\.forge$/i, '')
-            : 'sprite';
+        const sprites = spritesUI()
+            ? spritesUI().all()
+            : [editor.getSprite('sprite')];
+
+        // A single sprite still carrying the default name takes the file's,
+        // which is what this did before there was a list and is what makes
+        // dag-walk-down.forge export dag-walk-down.png. Once there are two, or
+        // once one has been named, the list is the authority and the filename
+        // stops having an opinion.
+        if (sprites.length === 1 && sprites[0].name === 'sprite' && currentPath)
+            sprites[0].name = baseName(currentPath).replace(/\.forge$/i, '');
+
         return {
             palette: editor.getPalette(),
             slots: editor.getSlots(),
             template: editor.getTemplate(),
-            sprites: [editor.getSprite(name)],
+            sprites,
         };
     }
 
@@ -126,11 +137,17 @@
         try {
             const project = P.parse(await f.readText(path));
             const sprite = project.sprites[0];
+            // The editor takes the first sprite plus everything the project
+            // shares; the panel takes the whole list, sprite 0 included, and
+            // does not swap it back in on top of what was just loaded.
             editor.setSprite(sprite, project.palette, project.slots, project.template);
+            if (spritesUI()) spritesUI().load(project.sprites);
             currentPath = path;
             savedRevision = editor.revision();
             refresh();
-            toast(`opened ${sprite.name}`);
+            toast(project.sprites.length > 1
+                ? `opened ${project.sprites.length} sprites`
+                : `opened ${sprite.name}`);
         } catch (e) {
             // core/project.js names the sprite, frame and row it choked on, so
             // this is worth showing rather than swallowing.
@@ -143,6 +160,7 @@
         if (!await confirmDiscard('Start a new project')) return;
         const blank = P.blank(32, 32, editor.getPalette());
         editor.setSprite(blank.sprites[0], null, null, null);
+        if (spritesUI()) spritesUI().load(blank.sprites);
         currentPath = null;
         savedRevision = editor.revision();
         refresh();

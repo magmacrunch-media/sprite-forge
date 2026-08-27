@@ -1,6 +1,38 @@
 import { test, eq, ok, throws } from './assert.mjs';
 
 export default function (SF) {
+
+    test('uniqueName keeps sprite names from colliding', () => {
+        const P = SF.project;
+        eq(P.uniqueName('dag', []), 'dag', 'nothing taken');
+        eq(P.uniqueName('dag', ['dag']), 'dag-2', 'taken once');
+        eq(P.uniqueName('dag', ['dag', 'dag-2']), 'dag-3', 'taken twice');
+        eq(P.uniqueName('  ', []), 'sprite', 'blank falls back');
+        eq(P.uniqueName(null, ['sprite']), 'sprite-2', 'so does nothing at all');
+    });
+
+    test('two sprites cannot share a name, in either direction', () => {
+        const P = SF.project;
+        const one = P.blank(2, 2, ['#ffffff']);
+        const two = {
+            ...one,
+            sprites: [
+                { ...one.sprites[0], name: 'dag' },
+                { ...one.sprites[0], name: 'dag' },
+            ],
+        };
+        // Saving has to refuse it as well as loading: a file that can be
+        // written and not read back is a way to lose work.
+        throws(() => P.stringify(two), 'has this name', 'stringify refuses');
+        const ok = {
+            ...one,
+            sprites: [
+                { ...one.sprites[0], name: 'dag' },
+                { ...one.sprites[0], name: 'dag-2' },
+            ],
+        };
+        eq(P.parse(P.stringify(ok)).sprites.map(s => s.name), ['dag', 'dag-2'], 'distinct names round-trip');
+    });
     const P = SF.project;
 
     const sample = () => ({

@@ -40,10 +40,21 @@ Load order matters and is fixed in `ui/index.html` — `color` → `draw` →
 `sheet` → `templates` → `editor`. `sheet.js` reads `SpriteForge.color` at IIFE
 time, and `editor.js` binds every core export at its top.
 
-After `editor.js` come `project-ui.js`, `targets-ui.js` and `menu.js`, in that
-order. project-ui reads the state accessor at the bottom of editor.js;
-targets-ui reads the current project from project-ui; menu.js dispatches to all
-of them and implements nothing itself, so it loads last. `png.js` goes before
+After `editor.js` come `sprites-ui.js`, `project-ui.js`, `targets-ui.js` and
+`menu.js`, in that order. sprites-ui seeds itself from the blank sprite the
+editor has already built, so it must come after it; project-ui asks sprites-ui
+for the whole list when saving; targets-ui reads the current project from
+project-ui; menu.js dispatches to all of them and implements nothing itself, so
+it loads last.
+
+The sprite being edited lives in the editor and nowhere else — the editor is
+the only thing that knows about a stroke half finished on the canvas. The rest
+of the project's sprites live in sprites-ui as plain data, which is why every
+path that touches that list syncs the editor back into it first. Switching
+clears the undo history on purpose: the stack holds states of the sprite being
+left, and replaying one into the sprite you switched to would paste another
+sprite's frames over yours. `revision()` is a counter that only ever goes up,
+because with a list the undo depth is no longer a property of the project. `png.js` goes before
 `editor.js`, which encodes the sheet it exports.
 
 `bridge.js` is the other exception: it loads from the `<head>`, ahead of all of them.

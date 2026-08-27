@@ -59,6 +59,16 @@ let tool = 'pencil';
 let zoom = 16;
 let mirrorX = false, onionSkin = false, gridOn = true;
 let undoStack = [], redoStack = [], painting = false, pendingSnap = null;
+
+// Every change ever made, counted. This is the dirty signal rather than the
+// undo depth, because with more than one sprite the depth is no longer a
+// property of the project: switching sprites clears the history, and an edit
+// to the sprite you are not looking at still has to count as unsaved work.
+//
+// The cost is that undoing back to exactly the saved state no longer clears
+// the dirty marker. Overstating unsaved work is the safe direction to be
+// wrong in.
+let changes = 0;
 let lastPos = null;             // previous pencil/erase position, for stroke interpolation
 let shapeStart = null, shapeEnd = null;
 let anim = { playing: false, fps: 8, scale: 4, index: 0, timer: null };
@@ -124,6 +134,7 @@ function currentState() {
 }
 
 function pushUndo(state) {
+  changes++;
   undoStack.push(state);
   if (undoStack.length > 100) undoStack.shift();
   redoStack.length = 0;
@@ -149,6 +160,7 @@ function restore(s) {
 
 function undo() {
   if (!undoStack.length) return;
+  changes++;
   const s = undoStack.pop();
   redoStack.push(currentState());
   restore(s);
@@ -156,6 +168,7 @@ function undo() {
 
 function redo() {
   if (!redoStack.length) return;
+  changes++;
   const s = redoStack.pop();
   undoStack.push(currentState());
   restore(s);
@@ -1149,6 +1162,23 @@ resizer.addEventListener('dblclick', () => { setSidebarWidth(240); saveViewPrefs
 // getSprite/setSprite speak the shape core/project.js uses, so a save is a read
 // and a load is a write, with no translation layer in between to drift.
 
+/** A sprite's own state into the editor. Everything here belongs to one
+ *  sprite; the palette and the template belong to the project and are not
+ *  touched. */
+function putSprite(sprite) {
+  frameW = sprite.w; frameH = sprite.h;
+  wInput.value = frameW; hInput.value = frameH;
+  frames = sprite.frames.map(f => f.map(row => [...row]));
+  frameIndex = 0; frameCache = [];
+  origin = { x: Math.min(sprite.origin.x, frameW), y: Math.min(sprite.origin.y, frameH) };
+  if (sprite.fps) { anim.fps = sprite.fps; animFpsInput.value = sprite.fps; }
+}
+
+function redrawEverything() {
+  syncOriginInputs(); sizeCanvas(); render(); renderSheet(); updateFrameLabel();
+  renderPalette(); updatePaletteActive(); renderSlots();
+}
+
 window.SpriteForge = window.SpriteForge || {};
 window.SpriteForge.editor = {
   /** The editor's contents as one project sprite. */
@@ -1173,25 +1203,37 @@ window.SpriteForge.editor = {
    */
   setSprite(sprite, newPalette, slots, templateId) {
     snapshot();
-    frameW = sprite.w; frameH = sprite.h;
-    wInput.value = frameW; hInput.value = frameH;
-    frames = sprite.frames.map(f => f.map(row => [...row]));
+    putSprite(sprite);
     if (newPalette && newPalette.length) {
       palette = newPalette.slice(0, MAX_SWATCHES);
       selectedSwatch = 0; selectedColor = palette[0];
     }
-    frameIndex = 0; frameCache = [];
-    origin = { x: Math.min(sprite.origin.x, frameW), y: Math.min(sprite.origin.y, frameH) };
-    if (sprite.fps) { anim.fps = sprite.fps; animFpsInput.value = sprite.fps; }
     // Slot identity only survives when the file carried it. Inventing one would
     // let a recolour rewrite colours that never belonged to that slot.
     activeTemplate = slots ? { id: templateId, label: templateId || 'project', slots, steps: {} } : null;
-    syncOriginInputs(); sizeCanvas(); render(); renderSheet(); updateFrameLabel();
-    renderPalette(); updatePaletteActive(); renderSlots();
+    redrawEverything();
   },
 
-  /** Bumped on every undoable change, so project-ui can tell dirty from saved. */
-  revision() { return undoStack.length; },
+  /**
+   * Switch which sprite of the project is being edited.
+   *
+   * Not an undo step, and the history goes with it. The stack holds states of
+   * the sprite being left; replaying one of those into this sprite would not
+   * be an undo, it would be pasting another sprite's frames over yours. The
+   * palette, the slots and the template are the project's rather than the
+   * sprite's, so they stay exactly as they are.
+   */
+  swapSprite(sprite) {
+    undoStack.length = 0;
+    redoStack.length = 0;
+    pendingSnap = null;
+    putSprite(sprite);
+    redrawEverything();
+  },
+
+  /** Bumped on every change, so project-ui can tell dirty from saved. Never
+   *  goes down, so switching sprites cannot make edits look saved. */
+  revision() { return changes; },
 
   // The Edit menu drives the same two functions Ctrl+Z and Ctrl+Y do. They go
   // through this seam rather than the menu reaching for the module scope,

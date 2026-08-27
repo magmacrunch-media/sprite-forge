@@ -135,6 +135,23 @@
                     palette and the origin. The PNG sheet holds only pixels.</div>
             </details>
 
+            <!-- Both builds: a sprite list needs no filesystem. -->
+            <details class="side-section" data-section="sprites" open>
+                <summary>SPRITES</summary>
+                <div id="sprite-list" class="sprite-list"></div>
+                <div class="row">
+                    <input type="text" id="sprite-name" placeholder="name this sprite" maxlength="40">
+                </div>
+                <div class="tool-grid three">
+                    <button id="sprite-add" title="Add a blank sprite at this size">ADD</button>
+                    <button id="sprite-dup" title="Duplicate this sprite">DUP</button>
+                    <button id="sprite-del" title="Delete this sprite">DEL</button>
+                </div>
+                <div class="hint">every sprite here shares one palette, so a
+                    character's facings cannot drift onto different browns. each
+                    exports as its own sheet, named by the name above.</div>
+            </details>
+
             <!-- Desktop only, like PROJECT above: targets-ui.js unhides it when a
                  filesystem bridge is present. The list itself lives in the OS
                  config directory, never in the repo. -->
@@ -384,6 +401,9 @@
     <!-- before editor.js, which encodes the sheet it exports -->
     <script src="png.js"></script>
     <script src="editor.js"></script>
+    <!-- after editor.js, and before project-ui.js which asks it for the list.
+         It seeds itself from the blank sprite the editor has already made. -->
+    <script src="sprites-ui.js"></script>
     <!-- after editor.js: reads the state accessor it defines at the bottom -->
     <script src="project-ui.js"></script>
     <!-- after project-ui.js: exporting a target reads the current project -->
