@@ -43,9 +43,13 @@ window.SpriteForge.targets.store = (function () {
         return r;
     }
 
-    /** A target's identity: what it is, and where it writes. */
+    /** A target's identity: what it is, and where it writes.
+     *
+     *  Lower-cased, because the paths this compares come from a Windows folder
+     *  picker and C:/Games/Dag and C:/games/dag are one directory. The stored
+     *  root keeps its original spelling — only the comparison is folded. */
     function id(kind, root) {
-        return kind + ':' + normalizeRoot(root);
+        return kind + ':' + normalizeRoot(root).toLowerCase();
     }
 
     function validate(o) {

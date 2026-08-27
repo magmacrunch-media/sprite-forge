@@ -64,6 +64,23 @@ window.SpriteForge.palettes = (function () {
     }
 
     /**
+     * Whatever was stored, reduced to themes that will actually load.
+     *
+     * custom() validates on the way in, but nothing validated what came back
+     * out, and this list is read while the editor is still starting up. One
+     * malformed entry — or a stored value that is not a list at all — used to
+     * throw there and take the rest of initialisation with it, leaving an app
+     * with no canvas and no way back except clearing site data. Anything that
+     * would not load is dropped instead of carried.
+     */
+    function sane(raw) {
+        if (!Array.isArray(raw)) return [];
+        return raw.filter(t => {
+            try { validate(t); return true; } catch { return false; }
+        });
+    }
+
+    /**
      * Every theme on offer: the vendored ones, then yours.
      *
      * Custom themes come last and win on id, so saving over a name you have
@@ -74,7 +91,7 @@ window.SpriteForge.palettes = (function () {
             .map(t => ({ ...t, custom: false }));
         const mine = [];
         const byId = new Map();
-        for (const t of customThemes || []) {
+        for (const t of Array.isArray(customThemes) ? customThemes : []) {
             const c = { ...t, section: 'yours', custom: true };
             if (byId.has(c.id)) mine[byId.get(c.id)] = c;
             else { byId.set(c.id, mine.length); mine.push(c); }
@@ -101,5 +118,5 @@ window.SpriteForge.palettes = (function () {
         return groups;
     }
 
-    return { normalize, truncates, validate, custom, list, find, bySection };
+    return { normalize, truncates, validate, custom, sane, list, find, bySection };
 }());

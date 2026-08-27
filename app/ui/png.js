@@ -19,7 +19,10 @@ window.SpriteForge.png = {
     bytes(canvas) {
         return new Promise((resolve, reject) => canvas.toBlob(
             blob => blob
-                ? blob.arrayBuffer().then(a => resolve(new Uint8Array(a)))
+                // .catch matters: without it a rejected arrayBuffer left this
+                // promise pending forever, and every caller awaits it — the
+                // export would hang with no toast and no error.
+                ? blob.arrayBuffer().then(a => resolve(new Uint8Array(a)), reject)
                 : reject(new Error('could not encode PNG')),
             'image/png'));
     },

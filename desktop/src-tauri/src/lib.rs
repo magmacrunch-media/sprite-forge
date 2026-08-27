@@ -10,10 +10,46 @@
 
 mod fs;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Whether the editor has unsaved changes, as last reported by the frontend.
+///
+/// Kept on this side so that closing the window can ask the same question
+/// File > Exit asks. The frontend pushes it on every change; if it ever stops
+/// pushing, the worst case is a stale `true` and one dialog too many — never a
+/// window that cannot be closed.
+struct Dirty(AtomicBool);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(Dirty(AtomicBool::new(false)))
+        .on_window_event(|window, event| {
+            use tauri::Manager;
+            let tauri::WindowEvent::CloseRequested { api, .. } = event else { return };
+
+            // Clean work closes with no ceremony, which is also the safe
+            // default if the frontend never told us anything.
+            if !window.state::<Dirty>().0.load(Ordering::Relaxed) {
+                return;
+            }
+
+            api.prevent_close();
+            let w = window.clone();
+            // show() takes a callback and returns immediately. A blocking ask
+            // here would be asking the thread that has to draw the dialog to
+            // wait for it.
+            tauri_plugin_dialog::DialogExt::dialog(window)
+                .message("This project has unsaved changes. Close anyway?")
+                .title("SPRITE//FORGE")
+                .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancel)
+                .show(move |discard| {
+                    if discard {
+                        let _ = w.destroy();
+                    }
+                });
+        })
         .invoke_handler(tauri::generate_handler![
             fs::read_text,
             fs::write_text,
@@ -25,9 +61,20 @@ pub fn run() {
             fs::read_dir,
             config_dir,
             quit,
+            set_dirty,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SPRITE//FORGE");
+}
+
+/// Told by the frontend whenever the unsaved-changes state flips.
+///
+/// Only the editor knows whether anything is unsaved, and only this side gets
+/// told the window is closing, so the answer has to be pushed across ahead of
+/// time rather than asked for at the moment it is needed.
+#[tauri::command]
+fn set_dirty(state: tauri::State<Dirty>, dirty: bool) {
+    state.0.store(dirty, Ordering::Relaxed);
 }
 
 /// File > Exit.

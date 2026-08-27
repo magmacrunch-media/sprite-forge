@@ -43,8 +43,7 @@
         const f = fs();
         if (!f) return;
         try {
-            configDir = await f.configDir();
-            const path = join(configDir, 'targets.json');
+            const path = await configPath();
             // A machine that has never added a target has no file, and that is
             // the normal first run rather than an error to report.
             store = await f.exists(path) ? S.parse(await f.readText(path)) : S.blank();
@@ -59,8 +58,20 @@
         render();
     }
 
-    async function saveStore() {
-        await fs().writeText(join(configDir, 'targets.json'), S.stringify(store));
+    /** Where the list lives. Resolved on demand rather than only in loadStore:
+     *  that returns early when there is no filesystem yet, and a shell that
+     *  installs one afterwards would otherwise reach a null configDir here. */
+    async function configPath() {
+        if (!configDir) configDir = await fs().configDir();
+        return join(configDir, 'targets.json');
+    }
+
+    /** Writes the store it is given, and is the only thing that writes. The
+     *  callers assign to `store` only once this has returned, so a failed
+     *  write leaves the panel agreeing with the disk rather than with what
+     *  the user hoped. */
+    async function saveStore(next) {
+        await fs().writeText(await configPath(), S.stringify(next));
     }
 
     // ── drawing ─────────────────────────────────────────────
@@ -120,8 +131,9 @@
         const root = await f.pickFolder(`Choose the ${kind} project folder`);
         if (!root) return;                      // cancelled
         try {
-            store = S.add(store, { label: baseName(root), kind, root });
-            await saveStore();
+            const next = S.add(store, { label: baseName(root), kind, root });
+            await saveStore(next);
+            store = next;
             render();
             toast('target added');
         } catch (e) {
@@ -137,9 +149,17 @@
     async function forget(t) {
         const f = fs();
         if (!await f.confirm(`Stop exporting into ${t.root}?`, 'SPRITE//FORGE')) return;
-        store = S.remove(store, S.id(t.kind, t.root));
-        await saveStore();
-        render();
+        const next = S.remove(store, S.id(t.kind, t.root));
+        try {
+            await saveStore(next);
+            store = next;
+            render();
+        } catch (e) {
+            // Without this the row vanished from a panel that no longer
+            // matched the file, and the target came back at the next start.
+            toast('could not update targets.json');
+            console.error('could not forget target:', e);
+        }
     }
 
     const baseName = (p) => S.normalizeRoot(p).split('/').pop() || p;

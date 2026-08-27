@@ -983,7 +983,9 @@ const themeName = document.getElementById('theme-name');
 const themeSave = document.getElementById('theme-save');
 const themeDelete = document.getElementById('theme-delete');
 
-const myThemes = () => readPrefs(THEME_KEY) || [];
+// Filtered through core rather than trusted: this is read during init, and a
+// malformed entry here used to throw and take the rest of startup with it.
+const myThemes = () => PAL.sane(readPrefs(THEME_KEY));
 
 function renderThemes(selectId) {
   if (!themeSelect) return;
@@ -1020,6 +1022,10 @@ function applyTheme(id) {
   const t = PAL.find(id, myThemes());
   if (!t) return;
   const colors = PAL.normalize(t.colors, MAX_SWATCHES);
+  // Nothing usable is not a palette. Assigning it would leave selectedColor
+  // undefined, and drawing would then write undefined into the frames and on
+  // into the .forge file.
+  if (!colors.length) { Toast.show('THAT THEME HAS NO USABLE COLOURS'); return; }
   snapshot();
   palette = colors;
   selectedSwatch = 0;
@@ -1199,7 +1205,6 @@ window.SpriteForge.editor = {
 // ── Init ────────────────────────────────────────────────
 loadSectionPrefs();
 loadViewPrefs();
-renderThemes();
 frames = [blankFrame()];
 sizeCanvas();
 render();
@@ -1209,3 +1214,6 @@ updateToolActive();
 updateFrameLabel();
 syncOriginInputs();
 renderSlots();
+// Last, deliberately. The themes come from storage, and nothing that comes
+// from storage should sit upstream of the canvas being drawn.
+renderThemes();

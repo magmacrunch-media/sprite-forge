@@ -86,5 +86,9 @@
 
         // ── lifecycle ────────────────────────────────────────
         quit: () => invoke('quit'),
+
+        // Pushed rather than asked for: only the editor knows whether anything
+        // is unsaved, and only the Rust side is told the window is closing.
+        setDirty: (dirty) => invoke('set_dirty', { dirty }),
     };
 }());

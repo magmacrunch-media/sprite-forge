@@ -65,6 +65,23 @@ export default function (SF) {
         eq(P.find('custom:dupe', [a, b]).colors, ['#000000'], 'the later one wins');
     });
 
+    test('what comes back out of storage is filtered, not trusted', () => {
+        // Each of these used to reach renderThemes and throw during startup,
+        // which stopped the rest of the editor initialising.
+        eq(P.sane(null), [], 'nothing stored');
+        eq(P.sane({ mine: [] }), [], 'not a list at all');
+        eq(P.sane('[]'), [], 'a string');
+        eq(P.sane([{ id: 'custom:x', name: 'x' }]), [], 'a theme with no colours');
+        eq(P.sane([{ name: 'x', colors: ['nope'] }]), [], 'a theme with no usable colours');
+        const good = P.custom('keeper', ['#ffffff']);
+        eq(P.sane([{ name: 'bad' }, good]).map(t => t.name), ['keeper'], 'the good one survives');
+    });
+
+    test('list survives a non-list where custom themes should be', () => {
+        eq(P.list('nonsense').length, SF.opsThemes.length, 'falls back to the vendored set');
+        eq(P.list(undefined).length, SF.opsThemes.length, 'and to nothing at all');
+    });
+
     test('find returns null rather than throwing on an unknown id', () => {
         eq(P.find('custom:nope', []), null, 'unknown id');
     });

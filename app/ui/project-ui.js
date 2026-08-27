@@ -25,6 +25,9 @@
 
     let currentPath = null;
     let savedRevision = editor.revision();
+    // What the Rust side was last told, so the poll below only crosses the IPC
+    // when the answer actually changes rather than every 400ms.
+    let pushedDirty = null;
 
     // Re-read rather than capture: the stub used by the tests installs fs after
     // this file has loaded, and a captured reference would miss it.
@@ -48,6 +51,14 @@
             docName.title = currentPath || 'not saved yet';
         }
         document.title = `${name}${mark} — SPRITE//FORGE`;
+
+        // Closing the window has to ask what File > Exit asks, and the answer
+        // has to be over there before the question is.
+        const dirty = isDirty();
+        if (dirty !== pushedDirty && fs().setDirty) {
+            pushedDirty = dirty;
+            fs().setDirty(dirty).catch(() => { pushedDirty = null; });
+        }
     }
 
     function toast(msg) {

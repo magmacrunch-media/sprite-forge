@@ -31,6 +31,15 @@ export default function (SF) {
             'already exports into', 'the same folder twice');
     });
 
+    test('one Windows folder cannot be added twice under different casing', () => {
+        const one = S.add(S.blank(), dag);
+        throws(() => S.add(one, { ...dag, root: 'C:/Games/Dag' }),
+            'already exports into', 'case-folded identity');
+        eq(one.targets[0].root, 'C:/games/dag', 'the stored spelling is untouched');
+        eq(S.remove(one, S.id('adenosine', 'C:/GAMES/DAG')).targets, [],
+            'and removing finds it either way');
+    });
+
     test('the same repo can be a target for two different engines', () => {
         const one = S.add(S.blank(), dag);
         const two = S.add(one, { ...dag, kind: 'gamemaker', label: 'dag (gm)' });
