@@ -17,11 +17,20 @@ This extends to what the app writes: no generator trailer in an exported
 ## Layout
 
 ```
-core/     pure logic — no DOM, no Tauri, no filesystem
-ui/       the DOM layer: canvas, widgets, mutable editor state
-shell/    vendored from magmacrunch.com's ware/shell (see below)
-fonts/    self-hosted faces the shell asks for
+app/            everything the shipped app loads, and nothing else
+  core/         pure logic — no DOM, no Tauri, no filesystem
+  ui/           the DOM layer: canvas, widgets, mutable editor state
+  shell/        vendored from magmacrunch.com's ware/shell (see below)
+  fonts/        self-hosted faces the shell asks for
+desktop/        the Tauri shell
+tests/          node tests for core/
 ```
+
+**app/ exists because it is tauri.conf.json's `frontendDist`, and Tauri embeds
+that directory whole.** Pointing it at the repo root put `.git`, `node_modules`,
+`tests/` and `desktop/src-tauri/target/` into the asset bundle — and the build
+failed outright when it reached the build lock it was itself holding. Anything
+added beside `app/` stays out of the binary; anything added inside it ships.
 
 `core/` never reaches back into `ui/`. That is the whole point of the split:
 the same `core/` serves the desktop build, the web demo, and the export

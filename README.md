@@ -31,7 +31,7 @@ yet.
 No build step. Serve the repo root and open `/ui/`:
 
 ```bash
-npx serve . -l 3300
+npx serve app -l 3300
 ```
 
 Then <http://localhost:3300/ui/>. It is a desktop-sized tool and says so below
@@ -72,9 +72,14 @@ Mac.
 
 | | |
 |---|---|
-| `core/` | pure logic — colour and shade ramps, shape rasterisation, the sheet codec, templates |
-| `ui/` | the DOM layer: canvas, widgets, editor state |
-| `shell/`, `fonts/` | vendored app shell from magmacrunch.com |
+| `app/core/` | pure logic — colour and shade ramps, shape rasterisation, the sheet codec, the .forge format, export planners |
+| `app/ui/` | the DOM layer: canvas, widgets, editor state |
+| `app/shell/`, `app/fonts/` | vendored app shell from magmacrunch.com |
+| `desktop/` | the Tauri shell |
+| `tests/` | node tests for `app/core/` |
+
+Everything the shipped app loads lives under `app/`, because that directory is
+Tauri's `frontendDist` and gets embedded whole.
 
 `core/` has no DOM, no filesystem and no engine dependencies, which is what lets
 the desktop build, the web demo and the export targets share it. See

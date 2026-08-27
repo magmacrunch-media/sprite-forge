@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const ORDER = ['color.js', 'draw.js', 'sheet.js', 'templates.js', 'project.js',
     'targets/gamemaker.js', 'targets/engines.js'];
 
