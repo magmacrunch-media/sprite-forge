@@ -2,7 +2,8 @@
 
 Pixel-art sprite and animation editor. Runs as a downloadable desktop app
 (Tauri) and, in a reduced form, as a page on magmacrunch.com. Vanilla JS,
-no build step, no framework. Apache-2.0.
+no build step, no framework. PolyForm Noncommercial 1.0.0 — this is a product,
+not an engine, so it sits with the games rather than with adenosine/magnolia.
 
 ## AI Attribution
 

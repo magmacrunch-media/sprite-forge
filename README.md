@@ -68,5 +68,11 @@ This is a shared contract across four repos, specified in adenosine's
 
 ## Licence
 
-Apache-2.0. The engines are Apache because they are meant to be reused; the
-games built with them are not. See [LICENSE](LICENSE).
+[PolyForm Noncommercial 1.0.0](LICENSE) — SPDX `PolyForm-Noncommercial-1.0.0`.
+
+Free for personal, hobby, educational and research use. Commercial use needs a
+licence from magmacrunch media LLC; get in touch.
+
+This sits with the games rather than with the engines. adenosine and magnolia
+are Apache because they exist to be built on; an editor is a product, and
+Apache would hand anyone the right to sell a re-skin of it.
