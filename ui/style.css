@@ -579,3 +579,20 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
     #sidebar-resizer { display: none; }
     #canvas-panel { padding: 12px; }
 }
+
+/* ── PROJECT panel ───────────────────────────────────────
+   Desktop build only. project-ui.js unhides the section when a filesystem
+   bridge is present; in the browser it stays hidden and the page is the same
+   files running without a disk. */
+.project-path {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    color: var(--fg-dim, #8b8b9e);
+    padding: 0.35rem 0.5rem;
+    margin-bottom: 0.4rem;
+    background: rgba(0, 0, 0, 0.25);
+    border-left: 2px solid var(--accent, #ff2e88);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

@@ -981,6 +981,62 @@ resizer.addEventListener('mousedown', (e) => {
 
 resizer.addEventListener('dblclick', () => { setSidebarWidth(240); saveViewPrefs(); });
 
+// ── State accessor ──────────────────────────────────────
+//
+// The one door into the editor's mutable state, for the parts of the UI that
+// live in their own files — project-ui.js today, the sprite list and the export
+// targets next. Everything above still touches the globals directly; this is
+// not an attempt to encapsulate them, it is a single named seam so that new
+// code does not add a second way in.
+//
+// getSprite/setSprite speak the shape core/project.js uses, so a save is a read
+// and a load is a write, with no translation layer in between to drift.
+
+window.SpriteForge = window.SpriteForge || {};
+window.SpriteForge.editor = {
+  /** The editor's contents as one project sprite. */
+  getSprite(name) {
+    return {
+      name: name || 'sprite',
+      w: frameW, h: frameH,
+      origin: { x: origin.x, y: origin.y },
+      fps: anim.fps,
+      frames: frames.map(f => f.map(row => [...row])),
+    };
+  },
+
+  getPalette() { return [...palette]; },
+  getTemplate() { return activeTemplate ? activeTemplate.id : null; },
+  getSlots() { return activeTemplate ? { ...activeTemplate.slots } : null; },
+
+  /**
+   * Replaces everything the editor is showing. Follows the same order as
+   * loadTemplate and the PNG import so it lands as one undo step, and so the
+   * three wholesale-replacement paths cannot drift apart.
+   */
+  setSprite(sprite, newPalette, slots, templateId) {
+    snapshot();
+    frameW = sprite.w; frameH = sprite.h;
+    wInput.value = frameW; hInput.value = frameH;
+    frames = sprite.frames.map(f => f.map(row => [...row]));
+    if (newPalette && newPalette.length) {
+      palette = newPalette.slice(0, MAX_SWATCHES);
+      selectedSwatch = 0; selectedColor = palette[0];
+    }
+    frameIndex = 0; frameCache = [];
+    origin = { x: Math.min(sprite.origin.x, frameW), y: Math.min(sprite.origin.y, frameH) };
+    if (sprite.fps) { anim.fps = sprite.fps; animFpsInput.value = sprite.fps; }
+    // Slot identity only survives when the file carried it. Inventing one would
+    // let a recolour rewrite colours that never belonged to that slot.
+    activeTemplate = slots ? { id: templateId, label: templateId || 'project', slots, steps: {} } : null;
+    syncOriginInputs(); sizeCanvas(); render(); renderSheet(); updateFrameLabel();
+    renderPalette(); updatePaletteActive(); renderSlots();
+  },
+
+  /** Bumped on every undoable change, so project-ui can tell dirty from saved. */
+  revision() { return undoStack.length; },
+};
+
 // ── Init ────────────────────────────────────────────────
 loadSectionPrefs();
 loadViewPrefs();

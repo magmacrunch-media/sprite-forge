@@ -66,6 +66,19 @@
         <div id="sidebar-resizer" title="Drag to resize the sidebar"></div>
 
         <aside id="sidebar" class="panel">
+            <details class="side-section" data-section="project" open hidden>
+                <summary>PROJECT</summary>
+                <div class="project-path" id="project-path">untitled</div>
+                <div class="tool-grid">
+                    <button id="project-new" title="New project">NEW</button>
+                    <button id="project-open" title="Open a .forge project (Ctrl+O)">OPEN</button>
+                    <button id="project-save" class="primary" title="Save (Ctrl+S)">SAVE</button>
+                    <button id="project-save-as" title="Save as (Ctrl+Shift+S)">AS&hellip;</button>
+                </div>
+                <div class="hint">a <code>.forge</code> file holds the frames, the
+                    palette and the origin. The PNG sheet holds only pixels.</div>
+            </details>
+
             <details class="side-section" data-section="tools" open>
                 <summary>TOOLS</summary>
                 <div id="tools" class="tool-grid">
@@ -255,6 +268,11 @@
     <script src="../core/project.js"></script>
     <script src="../core/targets/gamemaker.js"></script>
     <script src="../core/targets/engines.js"></script>
+    <!-- bridge before editor: it decides whether there is a filesystem at all,
+         and the panels that need one check for it as they initialise. -->
+    <script src="bridge.js"></script>
     <script src="editor.js"></script>
+    <!-- after editor.js: reads the state accessor it defines at the bottom -->
+    <script src="project-ui.js"></script>
 </body>
 </html>
