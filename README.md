@@ -19,10 +19,11 @@ yet.
 - [x] Character templates with named, recolourable slots
 - [x] PNG sheet import and export
 - [x] `core/` extracted from the DOM layer, so a desktop build can share it
-- [ ] Tauri shell: Open / Save / Save As
-- [ ] `.forge` project files
+- [x] `.forge` project files — readable, diffable, round-trip tested
+- [x] Export planners for GameMaker, adenosine, magnolia and texastoast
+- [x] Tauri shell and the Open / Save / Save As panel *(not yet compiled)*
 - [ ] Multi-sprite projects over one shared palette
-- [ ] Export targets that write into a game repo
+- [ ] A targets panel, so export goes straight into a game repo
 - [ ] Reduced web build synced to magmacrunch.com
 
 ## Running it
@@ -34,7 +35,38 @@ npx serve . -l 3300
 ```
 
 Then <http://localhost:3300/ui/>. It is a desktop-sized tool and says so below
-about 900px.
+about 900px. Run the tests with `npm test` — no dependencies, plain node.
+
+### The desktop build
+
+Needs a Rust toolchain and, on Windows, the MSVC linker. WebView2 ships with
+Windows 11, so there is nothing else to install.
+
+```bash
+winget install -e --id Rustlang.Rustup
+```
+
+Then the C++ toolchain. With Visual Studio already installed, add the two
+components to it from an **elevated** shell — the installer refuses `--quiet`
+otherwise, and exits 0 having done nothing:
+
+```bash
+& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe" modify --installPath "C:\Program Files\Microsoft Visual Studio8\Community" --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.26100 --quiet --norestart
+```
+
+Note `Microsoft.VisualStudio.Workload.VCTools` belongs to the standalone Build
+Tools product and is **not** in Visual Studio Community's product graph —
+asking for it also exits 0 and does nothing. Without Visual Studio, install
+`Microsoft.VisualStudio.2022.BuildTools` with the `VCTools` workload instead.
+
+Then:
+
+```bash
+cd desktop && npm install && npm run dev
+```
+
+Tauri cannot cross-compile: a `.msi` must be built on Windows and a `.dmg` on a
+Mac.
 
 ## Layout
 
