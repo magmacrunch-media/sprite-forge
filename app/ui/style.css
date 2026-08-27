@@ -596,3 +596,19 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* ── Desktop build: drop the website's chrome ────────────
+   bridge.js puts `desktop` on <html> the moment it finds Tauri's IPC, before
+   the body paints. These rules override shell/app-shell.css, which is a byte
+   copy of magmacrunch.com's and must stay one — the site needs every rule here
+   and the desktop app needs none of them.
+
+   The back link points at ../utilities/, the site's index of tools. That path
+   does not exist inside the bundle, so on the desktop it is not merely
+   redundant chrome, it is a link that cannot resolve. The footer is a site
+   credit bar, and it also still reads v1.0; on the desktop the installer and
+   the Apps list are what carry the version and the publisher. */
+.desktop .tool-nav,
+.desktop footer {
+    display: none;
+}

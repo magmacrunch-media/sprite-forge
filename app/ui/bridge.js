@@ -18,6 +18,13 @@
     const tauri = window.__TAURI_INTERNALS__;
     if (!tauri || typeof tauri.invoke !== 'function') return;
 
+    // Past this point we know we are the desktop build, so say so on <html>.
+    // CSS uses it to drop the parts of the vendored shell that only mean
+    // something on the website: the back link into magmacrunch.com's utilities
+    // index (a dead path inside the bundle) and the site footer. shell/ itself
+    // stays byte-identical — the overrides live in ui/style.css.
+    document.documentElement.classList.add('desktop');
+
     const invoke = (cmd, args) => tauri.invoke(cmd, args || {});
 
     // The dialog plugin's commands are namespaced by plugin, unlike ours.

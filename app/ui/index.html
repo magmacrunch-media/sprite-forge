@@ -9,6 +9,14 @@
     <link rel="stylesheet" href="../shell/app-shell.css">
     <link rel="stylesheet" href="../shell/toast.css">
     <link rel="stylesheet" href="style.css">
+    <!-- bridge.js loads here rather than with the other scripts at the end of
+         the body. It decides whether there is a filesystem at all, and marks
+         <html class="desktop"> when there is; doing that after the body has
+         painted flashes the website's back link on every launch. It cannot be
+         an inline script either — the desktop build's CSP is default-src 'self'
+         with no script-src, so inline is blocked and only files load. Nothing
+         in it reads the DOM tree, so running before that tree exists is safe. -->
+    <script src="bridge.js"></script>
 </head>
 <body>
     <div class="mobile-notice">
@@ -268,9 +276,6 @@
     <script src="../core/project.js"></script>
     <script src="../core/targets/gamemaker.js"></script>
     <script src="../core/targets/engines.js"></script>
-    <!-- bridge before editor: it decides whether there is a filesystem at all,
-         and the panels that need one check for it as they initialise. -->
-    <script src="bridge.js"></script>
     <script src="editor.js"></script>
     <!-- after editor.js: reads the state accessor it defines at the bottom -->
     <script src="project-ui.js"></script>

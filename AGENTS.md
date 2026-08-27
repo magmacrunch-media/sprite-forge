@@ -40,6 +40,13 @@ Load order matters and is fixed in `ui/index.html` — `color` → `draw` →
 `sheet` → `templates` → `editor`. `sheet.js` reads `SpriteForge.color` at IIFE
 time, and `editor.js` binds every core export at its top.
 
+`bridge.js` is the exception: it loads from the `<head>`, ahead of all of them.
+It is what detects Tauri, and it marks `<html class="desktop">` so CSS can drop
+the website chrome before the body paints rather than flashing it on every
+launch. That mark cannot come from an inline script — the desktop CSP is
+`default-src 'self'` with no `script-src`, so inline is blocked. It touches no
+DOM tree and no core export, so running first costs nothing.
+
 ## Not ES modules, deliberately
 
 Everything is a classic script attaching to `window.SpriteForge`. The website is
