@@ -12,8 +12,8 @@ four engines read.
 
 ## Status
 
-Under construction. The editor works; the desktop shell around it does not exist
-yet.
+Under construction. The editor works and installs as a desktop app; what is
+missing is the multi-sprite and export-target work above the drawing surface.
 
 - [x] Editor: tools, palette, shade ramps, frames, onion skin, animation preview
 - [x] Character templates with named, recolourable slots
@@ -21,7 +21,8 @@ yet.
 - [x] `core/` extracted from the DOM layer, so a desktop build can share it
 - [x] `.forge` project files — readable, diffable, round-trip tested
 - [x] Export planners for GameMaker, adenosine, magnolia and texastoast
-- [x] Tauri shell and the Open / Save / Save As panel - 3.2 MB binary
+- [x] Tauri shell and the Open / Save / Save As panel - 3.3 MB binary
+- [x] Windows installers - per-user NSIS (1.2 MB) and MSI (1.8 MB)
 - [ ] Multi-sprite projects over one shared palette
 - [ ] A targets panel, so export goes straight into a game repo
 - [ ] Reduced web build synced to magmacrunch.com

@@ -4,3 +4,6 @@ desktop/src-tauri/gen/
 dist/
 *.log
 .DS_Store
+
+# Local preview config for the web build (npx serve app -l 3300)
+.claude/

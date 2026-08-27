@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "SPRITE-FORGE",
+  "productName": "SPRITE FORGE",
   "version": "0.1.0",
   "identifier": "com.magmacrunch.sprite-forge",
   "build": {
@@ -39,6 +39,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "publisher": "magmacrunch media LLC",
     "copyright": "Copyright 2026 magmacrunch media",
     "shortDescription": "Pixel-art sprite and animation editor",
     "longDescription": "Draw sprites and animations and export uniform-grid PNG sheets for adenosine, magnolia, texastoast and GameMaker."
