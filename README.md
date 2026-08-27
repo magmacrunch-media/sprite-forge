@@ -17,6 +17,7 @@ missing is the multi-sprite and export-target work above the drawing surface.
 
 - [x] Editor: tools, palette, shade ramps, frames, onion skin, animation preview
 - [x] Character templates with named, recolourable slots
+- [x] Colour themes - 41 vendored from magma//ops, plus your own
 - [x] PNG sheet import and export
 - [x] `core/` extracted from the DOM layer, so a desktop build can share it
 - [x] `.forge` project files — readable, diffable, round-trip tested
@@ -79,6 +80,7 @@ Mac.
 | `app/shell/`, `app/fonts/` | vendored app shell from magmacrunch.com |
 | `desktop/` | the Tauri shell |
 | `tests/` | node tests for `app/core/` |
+| `scripts/` | re-vendor the magma//ops colour themes |
 
 Everything the shipped app loads lives under `app/`, because that directory is
 Tauri's `frontendDist` and gets embedded whole.

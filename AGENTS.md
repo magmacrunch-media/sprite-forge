@@ -72,6 +72,22 @@ and the GameMaker importer. Canonical spec lives in `adenosine/packages/rpg/API.
 the `sprites.ts` section; `adenosine/AGENTS.md` marks it "do not change
 unilaterally". Changing `core/sheet.js`'s format is a four-repo change.
 
+## Vendored colour themes
+
+`core/ops-themes.js` is **generated** — `node scripts/vendor-ops-themes.mjs
+[path-to-magmacrunch-ops]` — from magmacrunch-ops's
+`dashboard/static/theme.js`, where the same data drives the ops dashboard's CSS
+variables. Do not hand-edit it; re-run the script. Themes with an empty palette
+are dropped and a hex repeated inside one theme is carried once.
+
+Vendored rather than fetched for the reason the shell is: the desktop build has
+no network and no build step, so what it needs at runtime has to be inside the
+binary. The logic that reads the data is `core/palettes.js`, which is written
+by hand and is not regenerated.
+
+A theme is only the set of swatches you draw *from*. It never rewrites placed
+pixels — that is REPLACE and the template slots.
+
 ## Vendored shell
 
 `shell/` is a byte copy of magmacrunch.com's `ware/shell/` — **except**

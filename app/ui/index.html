@@ -172,6 +172,19 @@
                     <button id="add-color-btn" title="Add current color as a swatch">+ ADD</button>
                     <button id="ramp-btn" title="Add a 4-shade hue-shifted ramp of the current color">RAMP</button>
                 </div>
+                <div class="sub-label">theme</div>
+                <div class="row">
+                    <select id="palette-theme"></select>
+                </div>
+                <div class="row">
+                    <input type="text" id="theme-name" placeholder="name these swatches" maxlength="28">
+                    <button id="theme-save" title="Save the current swatches as a theme">SAVE</button>
+                    <button id="theme-delete" title="Delete the selected theme of yours">&times;</button>
+                </div>
+                <div class="hint">a theme replaces the swatches you draw
+                    <em>from</em>; pixels already placed keep their colour. one
+                    undo step. yours are saved on this machine.</div>
+
                 <div class="sub-label">replace everywhere</div>
                 <div class="row">
                     <input type="color" id="replace-color" value="#ffffff" title="New color">
@@ -340,6 +353,9 @@
     <!-- store reads engines.kinds() at load: an engine it has never heard
          of is not a target anyone can add. -->
     <script src="../core/targets/store.js"></script>
+    <!-- data then the logic that reads it -->
+    <script src="../core/ops-themes.js"></script>
+    <script src="../core/palettes.js"></script>
     <!-- before editor.js, which encodes the sheet it exports -->
     <script src="png.js"></script>
     <script src="editor.js"></script>

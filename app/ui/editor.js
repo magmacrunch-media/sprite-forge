@@ -961,6 +961,103 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '=') setZoom(ZOOM_STEPS.find(s => s > zoom) ?? zoom);
 });
 
+// ── Colour themes ───────────────────────────────────────
+//
+// A theme is a named list of colours: the set vendored from MAGMA//OPS in
+// core/ops-themes.js, plus any you save here. Loading one swaps the swatches
+// you draw *from* and leaves every placed pixel alone — recolouring what is
+// already drawn is what REPLACE and the template slots do.
+//
+// Yours live in localStorage rather than the .forge file, because a palette
+// you like is a fact about you and not about one sprite. The .forge file
+// carries its own palette regardless, so opening a project still restores the
+// colours it was drawn with.
+
+const THEME_KEY = 'spriteforge.themes';
+const PAL = window.SpriteForge.palettes;
+
+const themeSelect = document.getElementById('palette-theme');
+const themeName = document.getElementById('theme-name');
+const themeSave = document.getElementById('theme-save');
+const themeDelete = document.getElementById('theme-delete');
+
+const myThemes = () => readPrefs(THEME_KEY) || [];
+
+function renderThemes(selectId) {
+  if (!themeSelect) return;
+  themeSelect.innerHTML = '';
+
+  const first = document.createElement('option');
+  first.value = '';
+  first.textContent = 'choose a theme...';
+  themeSelect.append(first);
+
+  for (const group of PAL.bySection(myThemes())) {
+    const og = document.createElement('optgroup');
+    og.label = group.section.replace(/-/g, ' ');
+    for (const t of group.themes) {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      // The count is the useful number at a glance: a four-colour Game Boy
+      // theme and a twenty-seven colour Pop Art are different tools.
+      opt.textContent = `${t.name} (${t.colors.length})`;
+      og.append(opt);
+    }
+    themeSelect.append(og);
+  }
+  themeSelect.value = selectId || '';
+  syncThemeButtons();
+}
+
+function syncThemeButtons() {
+  const t = themeSelect ? PAL.find(themeSelect.value, myThemes()) : null;
+  if (themeDelete) themeDelete.disabled = !(t && t.custom);
+}
+
+function applyTheme(id) {
+  const t = PAL.find(id, myThemes());
+  if (!t) return;
+  const colors = PAL.normalize(t.colors, MAX_SWATCHES);
+  snapshot();
+  palette = colors;
+  selectedSwatch = 0;
+  selectedColor = palette[0];
+  renderPalette(); updatePaletteActive(); updateColorChip();
+  // Only one vendored theme is bigger than the palette, but saying so beats
+  // handing over the first thirty-two of forty-nine without a word.
+  Toast.show(PAL.truncates(t, MAX_SWATCHES)
+    ? `${t.name} — first ${MAX_SWATCHES} of ${PAL.normalize(t.colors).length}`.toUpperCase()
+    : t.name.toUpperCase());
+}
+
+if (themeSelect) themeSelect.addEventListener('change', () => {
+  syncThemeButtons();
+  if (themeSelect.value) applyTheme(themeSelect.value);
+});
+
+if (themeSave) themeSave.addEventListener('click', () => {
+  try {
+    const theme = PAL.custom(themeName.value || 'untitled', palette);
+    // Saving over a name replaces it: list() lets the later one win, and
+    // storing both would leave a copy nothing can ever reach.
+    writePrefs(THEME_KEY, [...myThemes().filter(t => t.id !== theme.id), theme]);
+    themeName.value = '';
+    renderThemes(theme.id);
+    Toast.show('THEME SAVED');
+  } catch (e) {
+    Toast.show(String(e.message).toUpperCase());
+  }
+});
+
+if (themeDelete) themeDelete.addEventListener('click', () => {
+  const id = themeSelect.value;
+  const t = PAL.find(id, myThemes());
+  if (!t || !t.custom) return;
+  writePrefs(THEME_KEY, myThemes().filter(x => x.id !== id));
+  renderThemes('');
+  Toast.show('THEME DELETED');
+});
+
 // ── Sidebar sections ────────────────────────────────────
 
 const sections = [...document.querySelectorAll('#sidebar details[data-section]')];
@@ -1100,6 +1197,7 @@ window.SpriteForge.editor = {
 // ── Init ────────────────────────────────────────────────
 loadSectionPrefs();
 loadViewPrefs();
+renderThemes();
 frames = [blankFrame()];
 sizeCanvas();
 render();

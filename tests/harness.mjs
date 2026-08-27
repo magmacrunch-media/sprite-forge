@@ -12,7 +12,8 @@ import vm from 'node:vm';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 const ORDER = ['color.js', 'draw.js', 'sheet.js', 'templates.js', 'project.js',
-    'targets/gamemaker.js', 'targets/engines.js', 'targets/store.js'];
+    'targets/gamemaker.js', 'targets/engines.js', 'targets/store.js',
+    'ops-themes.js', 'palettes.js'];
 
 // core/sheet.js is the only module that touches browser drawing APIs, and only
 // to compose or read back a bitmap. These shims are just enough for that: a
