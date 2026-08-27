@@ -14,6 +14,10 @@
 
     const panel = document.querySelector('[data-section="project"]');
     const pathLabel = document.getElementById('project-path');
+    // The same name in the header strip. On the desktop that strip is the
+    // toolbar and this is where the file is named, so CSS hides the sidebar
+    // copy above rather than showing both.
+    const docName = document.getElementById('doc-name');
     const btnNew = document.getElementById('project-new');
     const btnOpen = document.getElementById('project-open');
     const btnSave = document.getElementById('project-save');
@@ -38,6 +42,10 @@
         if (pathLabel) {
             pathLabel.textContent = name + mark;
             pathLabel.title = currentPath || 'not saved yet';
+        }
+        if (docName) {
+            docName.textContent = name + mark;
+            docName.title = currentPath || 'not saved yet';
         }
         document.title = `${name}${mark} — SPRITE//FORGE`;
     }

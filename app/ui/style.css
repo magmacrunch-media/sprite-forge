@@ -612,3 +612,50 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
 .desktop footer {
     display: none;
 }
+
+/* ── Desktop build: the header is a toolbar, not a hero ───
+   The shell's rule is that it defines tokens and the app overrides them, and
+   that the override belongs on :root because a body class does not reliably
+   beat a :root fallback. `desktop` is on <html>, which *is* :root, so
+   :root.desktop is that same override narrowed to the one build. */
+:root.desktop {
+    --title-size: 10px;
+    --title-glow: none;
+}
+
+/* A website leads with the wordmark because the visitor may not know what
+   they opened. An app does not have that problem — the title bar, the taskbar
+   and the Start Menu have all said SPRITE//FORGE before the window appears.
+   So the strip stops being a masthead and becomes what a tool actually needs
+   there: what file is open, and how big it is. */
+.desktop header {
+    padding: 8px 16px;
+}
+
+/* The glitch is two animated copies of the wordmark stacked behind it,
+   running for as long as the window is open. That reads as personality on a
+   landing page and as a distraction eight hours into drawing a sprite sheet.
+   Dropping the layers keeps the colour and the typeface — the app still looks
+   like itself, it just stops flickering at the user. */
+.desktop h1.glitch::before,
+.desktop h1.glitch::after {
+    content: none;
+}
+
+/* Moved, not duplicated: the sidebar copy goes when the header shows it. */
+.doc-name { display: none; }
+
+.desktop .doc-name {
+    display: inline-block;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    color: var(--dim);
+    padding-left: 16px;
+    border-left: 1px solid var(--border);
+    max-width: 40ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.desktop .project-path { display: none; }
