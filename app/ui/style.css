@@ -580,23 +580,6 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
     #canvas-panel { padding: 12px; }
 }
 
-/* ── PROJECT panel ───────────────────────────────────────
-   Desktop build only. project-ui.js unhides the section when a filesystem
-   bridge is present; in the browser it stays hidden and the page is the same
-   files running without a disk. */
-.project-path {
-    font-family: 'Courier Prime', monospace;
-    font-size: 0.78rem;
-    color: var(--fg-dim, #8b8b9e);
-    padding: 0.35rem 0.5rem;
-    margin-bottom: 0.4rem;
-    background: rgba(0, 0, 0, 0.25);
-    border-left: 2px solid var(--accent, #ff2e88);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 /* ── Desktop build: drop the website's chrome ────────────
    bridge.js puts `desktop` on <html> the moment it finds Tauri's IPC, before
    the body paints. These rules override shell/app-shell.css, which is a byte
@@ -658,7 +641,6 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
     white-space: nowrap;
 }
 
-.desktop .project-path { display: none; }
 
 /* ── Desktop build: the menu bar ──────────────────────────
    Press Start 2P is the app's voice, but it is a display face — every glyph

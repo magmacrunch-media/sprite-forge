@@ -36,11 +36,11 @@
                 <div class="menu">
                     <button class="menu-title" data-menu="file">FILE</button>
                     <div class="menu-drop" role="menu">
-                        <button data-action="project:new">New<i>Ctrl+N</i></button>
-                        <button data-action="project:open">Open&hellip;<i>Ctrl+O</i></button>
+                        <button data-action="project:new" title="Start an empty project">New<i>Ctrl+N</i></button>
+                        <button data-action="project:open" title="Open a .forge project">Open&hellip;<i>Ctrl+O</i></button>
                         <hr>
-                        <button data-action="project:save">Save<i>Ctrl+S</i></button>
-                        <button data-action="project:save-as">Save As&hellip;<i>Ctrl+Shift+S</i></button>
+                        <button data-action="project:save" title="A .forge file holds every sprite, the shared palette and the origins. A PNG sheet holds only pixels.">Save<i>Ctrl+S</i></button>
+                        <button data-action="project:save-as" title="Save the project under a new name">Save As&hellip;<i>Ctrl+Shift+S</i></button>
                         <hr>
                         <!-- The other three ways content gets in and out. They
                              were sidebar-only, which is the one place a person
@@ -122,20 +122,7 @@
         <div id="sidebar-resizer" title="Drag to resize the sidebar"></div>
 
         <aside id="sidebar" class="panel">
-            <details class="side-section" data-section="project" open hidden>
-                <summary>PROJECT</summary>
-                <div class="project-path" id="project-path">untitled</div>
-                <div class="tool-grid">
-                    <button id="project-new" title="New project">NEW</button>
-                    <button id="project-open" title="Open a .forge project (Ctrl+O)">OPEN</button>
-                    <button id="project-save" class="primary" title="Save (Ctrl+S)">SAVE</button>
-                    <button id="project-save-as" title="Save as (Ctrl+Shift+S)">AS&hellip;</button>
-                </div>
-                <div class="hint">a <code>.forge</code> file holds the frames, the
-                    palette and the origin. The PNG sheet holds only pixels.</div>
-            </details>
-
-            <!-- Both builds: a sprite list needs no filesystem. -->
+<!-- Both builds: a sprite list needs no filesystem. -->
             <details class="side-section" data-section="sprites" open>
                 <summary>SPRITES</summary>
                 <div id="sprite-list" class="sprite-list"></div>

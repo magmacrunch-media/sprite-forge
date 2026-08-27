@@ -12,16 +12,11 @@
     const P = window.SpriteForge.project;
     const editor = window.SpriteForge.editor;
 
-    const panel = document.querySelector('[data-section="project"]');
-    const pathLabel = document.getElementById('project-path');
-    // The same name in the header strip. On the desktop that strip is the
-    // toolbar and this is where the file is named, so CSS hides the sidebar
-    // copy above rather than showing both.
+    // The open file's name and dirty marker, in the header strip. There is no
+    // sidebar panel any more: New, Open, Save and Save As live in the File
+    // menu, where every other program keeps them, and a panel that only
+    // repeated them was a second place to maintain and a second place to look.
     const docName = document.getElementById('doc-name');
-    const btnNew = document.getElementById('project-new');
-    const btnOpen = document.getElementById('project-open');
-    const btnSave = document.getElementById('project-save');
-    const btnSaveAs = document.getElementById('project-save-as');
 
     let currentPath = null;
     let savedRevision = editor.revision();
@@ -37,15 +32,9 @@
     const isDirty = () => editor.revision() !== savedRevision;
 
     function refresh() {
-        const has = !!fs();
-        if (panel) panel.hidden = !has;
-        if (!has) return;
+        if (!fs()) return;
         const name = currentPath ? baseName(currentPath) : 'untitled';
         const mark = isDirty() ? ' •' : '';
-        if (pathLabel) {
-            pathLabel.textContent = name + mark;
-            pathLabel.title = currentPath || 'not saved yet';
-        }
         if (docName) {
             docName.textContent = name + mark;
             docName.title = currentPath || 'not saved yet';
@@ -165,11 +154,6 @@
         savedRevision = editor.revision();
         refresh();
     }
-
-    if (btnNew) btnNew.addEventListener('click', doNew);
-    if (btnOpen) btnOpen.addEventListener('click', doOpen);
-    if (btnSave) btnSave.addEventListener('click', doSave);
-    if (btnSaveAs) btnSaveAs.addEventListener('click', doSaveAs);
 
     document.addEventListener('keydown', (e) => {
         if (!fs()) return;
