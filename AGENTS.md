@@ -40,7 +40,11 @@ Load order matters and is fixed in `ui/index.html` — `color` → `draw` →
 `sheet` → `templates` → `editor`. `sheet.js` reads `SpriteForge.color` at IIFE
 time, and `editor.js` binds every core export at its top.
 
-`bridge.js` is the exception: it loads from the `<head>`, ahead of all of them.
+`project-ui.js` and then `menu.js` load after `editor.js`, in that order:
+project-ui reads the state accessor at the bottom of editor.js, and menu.js
+dispatches to both — it implements nothing itself, so it must load last.
+
+`bridge.js` is the other exception: it loads from the `<head>`, ahead of all of them.
 It is what detects Tauri, and it marks `<html class="desktop">` so CSS can drop
 the website chrome before the body paints rather than flashing it on every
 launch. That mark cannot come from an inline script — the desktop CSP is

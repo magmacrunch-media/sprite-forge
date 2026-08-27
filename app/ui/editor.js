@@ -1035,6 +1035,14 @@ window.SpriteForge.editor = {
 
   /** Bumped on every undoable change, so project-ui can tell dirty from saved. */
   revision() { return undoStack.length; },
+
+  // The Edit menu drives the same two functions Ctrl+Z and Ctrl+Y do. They go
+  // through this seam rather than the menu reaching for the module scope,
+  // which is the point of having one door. canUndo/canRedo are what let the
+  // menu grey its own items out instead of offering a no-op.
+  undo, redo,
+  canUndo() { return undoStack.length > 0; },
+  canRedo() { return redoStack.length > 0; },
 };
 
 // ── Init ────────────────────────────────────────────────

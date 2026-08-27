@@ -24,9 +24,23 @@ pub fn run() {
             fs::exists,
             fs::read_dir,
             config_dir,
+            quit,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SPRITE//FORGE");
+}
+
+/// File > Exit.
+///
+/// A named command rather than granting core:window:allow-close, for the same
+/// reason src/fs.rs is a set of commands rather than the filesystem plugin:
+/// one function the frontend can call is a smaller surface than a capability
+/// that lets any script close the window. The unsaved-changes question is
+/// asked in project-ui.js before this is ever reached — by the time the call
+/// arrives the decision has been made.
+#[tauri::command]
+fn quit(app: tauri::AppHandle) {
+    app.exit(0);
 }
 
 /// Where targets.json lives: the OS config directory, never the repo.

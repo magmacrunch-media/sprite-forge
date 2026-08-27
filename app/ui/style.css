@@ -659,3 +659,111 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
 }
 
 .desktop .project-path { display: none; }
+
+/* ── Desktop build: the menu bar ──────────────────────────
+   Press Start 2P is the app's voice, but it is a display face — every glyph
+   occupies the same wide cell, so "Save As..." alone runs past 90px and a
+   File menu built from it reads as a wall. Courier Prime is the other face
+   the shell already carries, it is a text face, and it is what the sidebar
+   uses for filenames. The bar keeps Press Start 2P for its three titles,
+   where the width is the point, and the drop-downs are Courier Prime. */
+.menubar { display: none; }
+
+.desktop .menubar {
+    display: flex;
+    align-items: stretch;
+    align-self: stretch;
+    margin-left: 4px;
+}
+
+.desktop .menu { position: relative; display: flex; }
+
+.desktop .menu-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    letter-spacing: 0.08em;
+    color: var(--dim);
+    background: none;
+    border: none;
+    padding: 0 10px;
+    cursor: pointer;
+}
+
+.desktop .menu-title:hover,
+.desktop .menu.open .menu-title {
+    color: var(--text);
+    background: var(--surface);
+}
+
+.desktop .menu-drop {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 40;
+    min-width: 210px;
+    padding: 4px 0;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    /* The drop sits over the canvas, which is a checkerboard. Without a shadow
+       its edge disappears into the squares. */
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
+.desktop .menu.open .menu-drop { display: block; }
+
+.desktop .menu-drop button {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    width: 100%;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.82rem;
+    color: var(--text);
+    background: none;
+    border: none;
+    padding: 5px 12px 5px 26px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.desktop .menu-drop button:hover:not(:disabled) {
+    background: var(--rose);
+    color: var(--bg);
+}
+
+/* Greyed rather than hidden: an Undo that vanishes when the stack is empty
+   moves Redo up under the cursor, and the menu changes shape as you use it. */
+.desktop .menu-drop button:disabled {
+    color: var(--dim);
+    cursor: default;
+}
+
+/* The shortcut hint. Dim, and it inherits the hover colour so it does not
+   stay grey on a rose row. */
+.desktop .menu-drop button i {
+    font-style: normal;
+    font-size: 0.72rem;
+    color: var(--dim);
+}
+
+.desktop .menu-drop button:hover:not(:disabled) i { color: var(--bg); }
+
+/* The checkmark column is why the items are indented 26px on the left: the
+   tick appears and disappears without the label moving. */
+.desktop .menu-drop button.checked::before {
+    content: '✓';
+    position: absolute;
+    left: 10px;
+    font-size: 0.82rem;
+}
+
+.desktop .menu-drop button { position: relative; }
+
+.desktop .menu-drop hr {
+    height: 0;
+    margin: 4px 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+}

@@ -27,6 +27,43 @@
     <header>
         <div class="header-left">
             <h1 class="glitch" data-text="SPRITE//FORGE">SPRITE//FORGE</h1>
+            <!-- Desktop only. Drawn in the page rather than by Windows: a
+                 native menu bar is OS-drawn, so it cannot take the app's
+                 typeface. Every item names an action and menu.js dispatches
+                 it; the View items proxy the toolbar buttons they name, so
+                 there is still one implementation of each toggle. -->
+            <nav class="menubar" id="menubar" aria-label="Main menu">
+                <div class="menu">
+                    <button class="menu-title" data-menu="file">FILE</button>
+                    <div class="menu-drop" role="menu">
+                        <button data-action="project:new">New<i>Ctrl+N</i></button>
+                        <button data-action="project:open">Open&hellip;<i>Ctrl+O</i></button>
+                        <hr>
+                        <button data-action="project:save">Save<i>Ctrl+S</i></button>
+                        <button data-action="project:save-as">Save As&hellip;<i>Ctrl+Shift+S</i></button>
+                        <hr>
+                        <button data-action="app:quit">Exit<i>Alt+F4</i></button>
+                    </div>
+                </div>
+                <div class="menu">
+                    <button class="menu-title" data-menu="edit">EDIT</button>
+                    <div class="menu-drop" role="menu">
+                        <button data-action="edit:undo">Undo<i>Ctrl+Z</i></button>
+                        <button data-action="edit:redo">Redo<i>Ctrl+Shift+Z</i></button>
+                    </div>
+                </div>
+                <div class="menu">
+                    <button class="menu-title" data-menu="view">VIEW</button>
+                    <div class="menu-drop" role="menu">
+                        <button data-action="view:zoom-in">Zoom In<i>=</i></button>
+                        <button data-action="view:zoom-out">Zoom Out<i>&minus;</i></button>
+                        <hr>
+                        <button data-action="view:grid" data-toggles="grid-toggle">Pixel Grid<i>D</i></button>
+                        <button data-action="view:mirror" data-toggles="mirror-toggle">Mirror<i>M</i></button>
+                        <button data-action="view:onion" data-toggles="onion-toggle">Onion Skin<i>N</i></button>
+                    </div>
+                </div>
+            </nav>
             <!-- Desktop only, and empty until project-ui.js fills it: the open
                  file's name and dirty marker. CSS hides it in the browser,
                  where there is no file to name. -->
@@ -283,5 +320,7 @@
     <script src="editor.js"></script>
     <!-- after editor.js: reads the state accessor it defines at the bottom -->
     <script src="project-ui.js"></script>
+    <!-- last: dispatches to both of the above -->
+    <script src="menu.js"></script>
 </body>
 </html>

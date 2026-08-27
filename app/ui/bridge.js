@@ -25,6 +25,16 @@
     // stays byte-identical — the overrides live in ui/style.css.
     document.documentElement.classList.add('desktop');
 
+    // WebView2 still offers its own right-click menu — Back, Reload, Save as,
+    // Print. Every entry on it is either meaningless in a single-page tool or
+    // actively destructive: Reload throws away unsaved frames with no prompt.
+    // Fields keep theirs, because Cut/Copy/Paste in a text box is the one case
+    // where the browser's menu is the right menu.
+    document.addEventListener('contextmenu', (e) => {
+        if (e.target.closest('input, textarea')) return;
+        e.preventDefault();
+    });
+
     const invoke = (cmd, args) => tauri.invoke(cmd, args || {});
 
     // The dialog plugin's commands are namespaced by plugin, unlike ours.
@@ -73,5 +83,8 @@
         // know about its author's repos while a stranger's copy knows about
         // theirs and ships with an empty list.
         configDir: () => invoke('config_dir'),
+
+        // ── lifecycle ────────────────────────────────────────
+        quit: () => invoke('quit'),
     };
 }());

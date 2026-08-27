@@ -147,6 +147,9 @@
         if (!(e.metaKey || e.ctrlKey)) return;
         if (e.key === 's') { e.preventDefault(); if (e.shiftKey) doSaveAs(); else doSave(); }
         else if (e.key === 'o') { e.preventDefault(); doOpen(); }
+        // Bound because the File menu prints it. A menu that names a shortcut
+        // it does not answer to is worse than a menu with no shortcuts on it.
+        else if (e.key === 'n') { e.preventDefault(); doNew(); }
     });
 
     // The dirty marker has to react to drawing, which does not notify anyone.
@@ -155,11 +158,15 @@
     setInterval(refresh, 400);
     refresh();
 
+    // The four actions, under the names the buttons, the File menu and the
+    // tests all reach them by. They were _-prefixed while the tests were the
+    // only caller; the menu makes them a real surface, so the underscore goes.
     window.SpriteForge.projectUI = {
         refresh, isDirty,
         path: () => currentPath,
         currentProject,
-        // For tests: drive the same paths the buttons do.
-        _open: doOpen, _save: doSave, _saveAs: doSaveAs, _new: doNew,
+        open: doOpen, save: doSave, saveAs: doSaveAs, newProject: doNew,
+        // Quit has to ask the same question Open and New ask.
+        confirmDiscard,
     };
 }());
