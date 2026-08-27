@@ -639,13 +639,6 @@ function setZoom(z) {
 
 // ── Export ──────────────────────────────────────────────
 
-/** The sheet as real PNG bytes. toDataURL gives a string; a file wants these. */
-function pngBytes(canvas) {
-  return new Promise((resolve, reject) => canvas.toBlob(
-    b => b ? b.arrayBuffer().then(a => resolve(new Uint8Array(a))) : reject(new Error('could not encode PNG')),
-    'image/png'));
-}
-
 /**
  * Save the sheet, by whichever route the build has.
  *
@@ -665,7 +658,7 @@ async function saveSheet(canvas, name) {
   }
   const path = await f.savePng(name);
   if (!path) return null;
-  await f.writeBytes(path.endsWith('.png') ? path : path + '.png', await pngBytes(canvas));
+  await f.writeBytes(path.endsWith('.png') ? path : path + '.png', await window.SpriteForge.png.bytes(canvas));
   return path;
 }
 

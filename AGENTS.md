@@ -40,9 +40,11 @@ Load order matters and is fixed in `ui/index.html` — `color` → `draw` →
 `sheet` → `templates` → `editor`. `sheet.js` reads `SpriteForge.color` at IIFE
 time, and `editor.js` binds every core export at its top.
 
-`project-ui.js` and then `menu.js` load after `editor.js`, in that order:
-project-ui reads the state accessor at the bottom of editor.js, and menu.js
-dispatches to both — it implements nothing itself, so it must load last.
+After `editor.js` come `project-ui.js`, `targets-ui.js` and `menu.js`, in that
+order. project-ui reads the state accessor at the bottom of editor.js;
+targets-ui reads the current project from project-ui; menu.js dispatches to all
+of them and implements nothing itself, so it loads last. `png.js` goes before
+`editor.js`, which encodes the sheet it exports.
 
 `bridge.js` is the other exception: it loads from the `<head>`, ahead of all of them.
 It is what detects Tauri, and it marks `<html class="desktop">` so CSS can drop

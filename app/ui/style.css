@@ -767,3 +767,48 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
     border: 0;
     border-top: 1px solid var(--border);
 }
+
+/* ── TARGETS panel ────────────────────────────────────────
+   Desktop build only, like PROJECT above: targets-ui.js unhides the section
+   when a filesystem bridge is present. */
+.target-list { margin-bottom: 8px; }
+
+.target-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+/* The label is the folder's own name and the tooltip carries the full path,
+   because a sidebar this narrow will always lose to C:\ProgramData\... */
+.target-name {
+    flex: 1;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    padding: 0.3rem 0.4rem;
+    background: rgba(0, 0, 0, 0.25);
+    border-left: 2px solid var(--accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.target-row button { flex-shrink: 0; }
+.target-row .target-del { padding-left: 7px; padding-right: 7px; }
+
+/* The app's only <select>. Styled here rather than left native because a
+   Windows combo box in the middle of this sidebar is the same mismatch a
+   native menu bar would have been across the top. */
+#target-kind {
+    width: 100%;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.3rem 0.4rem;
+}
+
+#target-kind:focus { outline: 1px solid var(--accent); }
