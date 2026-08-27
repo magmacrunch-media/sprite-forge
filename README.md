@@ -21,7 +21,7 @@ yet.
 - [x] `core/` extracted from the DOM layer, so a desktop build can share it
 - [x] `.forge` project files — readable, diffable, round-trip tested
 - [x] Export planners for GameMaker, adenosine, magnolia and texastoast
-- [x] Tauri shell and the Open / Save / Save As panel *(not yet compiled)*
+- [x] Tauri shell and the Open / Save / Save As panel - 3.2 MB binary
 - [ ] Multi-sprite projects over one shared palette
 - [ ] A targets panel, so export goes straight into a game repo
 - [ ] Reduced web build synced to magmacrunch.com
