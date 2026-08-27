@@ -1,0 +1,15 @@
+{
+  "name": "sprite-forge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SPRITE//FORGE — pixel-art sprite and animation editor. No build step.",
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "lint": "eslint core/*.js ui/*.js tests/*.mjs",
+    "check": "npm run lint && npm run test",
+    "serve": "npx serve . -l 3300"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0"
+  }
+}

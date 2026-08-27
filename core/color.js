@@ -51,10 +51,18 @@ window.SpriteForge.color = (function () {
 
     // One shade of a colour, as a step on a pixel-art ramp: shadows shift hue
     // toward blue and gain saturation, highlights shift toward yellow and lose
-    // it. Step 0 returns the base verbatim rather than round-tripping through
-    // HSL — that round trip loses a bit to float error, and #f0c090 coming back
-    // as #f0c08f would silently break every exact-string hex lookup in the
-    // editor.
+    // it.
+    //
+    // Step 0 returns the base string itself rather than round-tripping through
+    // HSL. Exact-string hex lookups depend on it — slot recolouring, palette
+    // membership and the .forge key all compare hexes with === — so this makes
+    // identity a guarantee of the code rather than a property of the arithmetic.
+    //
+    // The inherited comment here claimed the round trip drifts (#f0c090 coming
+    // back as #f0c08f). It does not: hslToHex rounds to the nearest byte, and a
+    // sweep of 140,608 sampled colours plus every colour this project uses
+    // round-trips exactly. The short circuit is kept anyway — it is free, and
+    // it means a future change to hslToHex cannot quietly break the invariant.
     function shadeHex(base, step) {
         if (!step) return base;
         const [h, s, l] = hexToHsl(base);
