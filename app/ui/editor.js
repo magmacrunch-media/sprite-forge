@@ -639,17 +639,76 @@ function setZoom(z) {
 
 // ── Export ──────────────────────────────────────────────
 
-document.getElementById('export-btn').addEventListener('click', () => {
+/** The sheet as real PNG bytes. toDataURL gives a string; a file wants these. */
+function pngBytes(canvas) {
+  return new Promise((resolve, reject) => canvas.toBlob(
+    b => b ? b.arrayBuffer().then(a => resolve(new Uint8Array(a))) : reject(new Error('could not encode PNG')),
+    'image/png'));
+}
+
+/**
+ * Save the sheet, by whichever route the build has.
+ *
+ * The browser has exactly one: an <a download>, which lands the file in the
+ * downloads folder with no say in the matter. The desktop has a Save dialog
+ * and a real write, and fs.savePng existed for this from the day the bridge
+ * was written — it just had no caller until now.
+ *
+ * @returns the path written, or null if the dialog was cancelled.
+ */
+async function saveSheet(canvas, name) {
+  const f = window.SpriteForge.fs;
+  if (!f) {
+    const a = document.createElement('a');
+    a.download = name; a.href = canvas.toDataURL('image/png'); a.click();
+    return name;
+  }
+  const path = await f.savePng(name);
+  if (!path) return null;
+  await f.writeBytes(path.endsWith('.png') ? path : path + '.png', await pngBytes(canvas));
+  return path;
+}
+
+/**
+ * The load call for every engine, from the one place that knows them.
+ *
+ * This panel used to hardcode two of the three, and the two it kept were not
+ * the interesting ones: adenosine, whose call is the only one that carries
+ * originX and originY as arguments, was the one missing. core/targets has held
+ * a descriptor per engine all along, so read them from there and the list
+ * cannot drift from the exporter again.
+ */
+function loadSnippets(file) {
+  const T = window.SpriteForge.targets.engines;
+  const out = [];
+  for (const { id, label } of T.kinds()) {
+    out.push(`// ${label}`);
+    out.push(`//   ${T.ENGINES[id].snippet({
+      file, w: frameW, h: frameH, ox: origin.x, oy: origin.y,
+    })}`);
+  }
+  return out;
+}
+
+document.getElementById('export-btn').addEventListener('click', async () => {
   const sheet = framesToSheet(frames, frameW, frameH);
   const name = `sprite_${frameW}x${frameH}.png`;
-  const a = document.createElement('a');
-  a.download = name; a.href = sheet.toDataURL('image/png'); a.click();
+
   exportOutput.value = [
     `// sprite//forge — ${frames.length} frame${frames.length === 1 ? '' : 's'}, ${frameW}×${frameH}, sheet ${sheet.width}×${sheet.height}`,
     `// origin: (${origin.x}, ${origin.y})   (not stored in the PNG — pass it at load time)`,
-    `// texastoast:  SpriteSheet('${name}', ${frameW}, ${frameH})   frame i = (i, 0)`,
-    `// magnolia:    sprite_load(&s, "${name}", ${origin.x}, ${origin.y});`,
+    `//`,
+    ...loadSnippets(name),
   ].join('\n');
+
+  try {
+    const path = await saveSheet(sheet, name);
+    if (path) Toast.show('EXPORTED');
+  } catch (e) {
+    // Never say exported when nothing reached the disk.
+    Toast.show('COULD NOT EXPORT');
+    console.error('export failed:', e);
+  }
 });
 
 // ── Copy ────────────────────────────────────────────────
