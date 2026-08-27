@@ -83,6 +83,21 @@ and the GameMaker importer. Canonical spec lives in `adenosine/packages/rpg/API.
 the `sprites.ts` section; `adenosine/AGENTS.md` marks it "do not change
 unilaterally". Changing `core/sheet.js`'s format is a four-repo change.
 
+## The version lives in five places
+
+No build step means no single source for it, so a bump is five edits:
+
+```
+package.json                        the repo
+desktop/package.json                the shell's package
+desktop/src-tauri/tauri.conf.json   the installer and the Apps list
+desktop/src-tauri/Cargo.toml        the crate
+app/ui/index.html                   the footer, which only the web build shows
+```
+
+The footer is the one that rots, because the desktop build hides it — it sat at
+"v1.0" through everything up to 0.2.0. Check it.
+
 ## Vendored colour themes
 
 `core/ops-themes.js` is **generated** — `node scripts/vendor-ops-themes.mjs

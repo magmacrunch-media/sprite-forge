@@ -1,6 +1,6 @@
 {
   "name": "sprite-forge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "SPRITE//FORGE \u2014 pixel-art sprite and animation editor. No build step.",
   "license": "PolyForm-Noncommercial-1.0.0",
