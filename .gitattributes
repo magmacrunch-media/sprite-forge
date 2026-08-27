@@ -1,0 +1,10 @@
+# Leave text to core.autocrlf, matching the website repo. scripts/sync-web.mjs
+# is a byte copy into website/ware/sprite-forge/; pinning anything here to LF
+# would make the website report every synced file as modified while `git diff`
+# shows nothing, burying the one file that actually changed.
+* text=auto
+
+*.png binary
+*.woff2 binary
+*.ttf binary
+*.ico binary
