@@ -25,8 +25,7 @@ missing is the multi-sprite and export-target work above the drawing surface.
 - [x] Tauri shell and the Open / Save / Save As panel - 3.3 MB binary
 - [x] Windows installers - per-user NSIS (1.2 MB) and MSI (1.8 MB)
 - [ ] Multi-sprite projects over one shared palette
-- [x] A targets panel - export lands in a game repo, for the three sheet
-      engines; GameMaker still to wire
+- [x] A targets panel - export lands in a game repo, all four engines
 - [ ] Reduced web build synced to magmacrunch.com
 
 ## Running it

@@ -934,8 +934,10 @@ document.getElementById('clear-btn').addEventListener('click', () => {
 // ── Keyboard shortcuts ──────────────────────────────────
 
 document.addEventListener('keydown', (e) => {
+  // Any open dialog swallows the shortcuts, rather than the two named ones:
+  // the GameMaker sprite picker is a third, and there will be a fourth.
   if ((e.target.matches && e.target.matches('input, textarea'))
-      || importModal.open || templateModal.open) return;
+      || document.querySelector('dialog[open]')) return;
   const m = e.metaKey || e.ctrlKey;
   if (m && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
   if (m && e.key === 'z' && e.shiftKey)  { e.preventDefault(); redo(); return; }

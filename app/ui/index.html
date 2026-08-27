@@ -338,6 +338,24 @@
         </div>
     </dialog>
 
+    <!-- Desktop only in practice: it is opened from the TARGETS panel, which
+         only exists when there is a filesystem. -->
+    <dialog id="gm-modal">
+        <div class="modal-header">
+            <h2>GAMEMAKER SPRITE</h2>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Which sprite does this project overwrite? GameMaker keeps its own
+                frame GUIDs, so the slot has to exist already and declare the
+                same number of frames.</p>
+            <div class="gm-list" id="gm-list"></div>
+            <div class="modal-actions">
+                <button id="gm-cancel">CANCEL</button>
+            </div>
+        </div>
+    </dialog>
+
     <script src="../shell/toast.js"></script>
     <!-- core/ first: editor.js binds its exports at load. Order matters within
          core/ too — sheet.js reads SpriteForge.color at IIFE time. The ?v=

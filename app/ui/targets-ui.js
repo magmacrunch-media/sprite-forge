@@ -15,6 +15,7 @@
 (function () {
     const S = window.SpriteForge.targets.store;
     const E = window.SpriteForge.targets.engines;
+    const GM = window.SpriteForge.targets.gamemaker;
     const sheet = window.SpriteForge.sheet;
     const png = window.SpriteForge.png;
 
@@ -96,16 +97,8 @@
 
             const go = document.createElement('button');
             go.textContent = 'EXPORT';
-            // GameMaker is in the store's vocabulary because its planner
-            // exists, but nothing here can drive it yet: it needs a .yy chosen
-            // and read before it can plan anything. Listing it disabled beats
-            // hiding a target the user can see in their own targets.json.
-            if (t.kind === 'gamemaker') {
-                go.disabled = true;
-                go.title = 'GameMaker export is not wired up yet';
-            } else {
-                go.addEventListener('click', () => exportTo(t));
-            }
+            go.addEventListener('click', () =>
+                (t.kind === 'gamemaker' ? exportGameMaker(t) : exportTo(t)));
 
             const del = document.createElement('button');
             del.className = 'target-del';
@@ -197,6 +190,148 @@
             : `exported to ${t.label}`);
     }
 
+    // ── GameMaker ───────────────────────────────────────────
+    //
+    // The other three take a sheet. GameMaker takes the frames apart: one PNG
+    // per frame under its own GUID, an identical copy under layers/, and the
+    // .yy patched for size and origin. The GUIDs are read out of the existing
+    // .yy and never invented, so the slot has to already exist — which is why
+    // this asks which sprite to overwrite instead of taking a name.
+
+    const gmModal = document.getElementById('gm-modal');
+    const gmList = document.getElementById('gm-list');
+
+    // Whoever is waiting on the dialog, or null when it is not up. Every way
+    // out goes through it, so the promise is settled exactly once no matter
+    // which one the user takes.
+    //
+    // Deliberately NOT driven by the dialog's own close event. That event is
+    // the obvious hook and it is one dependency too many: settling a promise
+    // on it means any environment that does not raise it leaves the caller
+    // waiting for an answer that never comes, with the dialog already gone
+    // from the screen. Closing is ours to do here, so the answer is ours to
+    // deliver too.
+    let answer = null;
+
+    const dismiss = () => { if (answer) answer(null); };
+
+    if (gmModal) {
+        gmModal.querySelector('.modal-close').addEventListener('click', dismiss);
+        document.getElementById('gm-cancel').addEventListener('click', dismiss);
+        gmModal.addEventListener('click', (e) => { if (e.target === gmModal) dismiss(); });
+        // Escape closes a <dialog> natively and fires cancel first. Both are
+        // handled: cancel for the normal path, keydown for anything that
+        // closes without raising it.
+        gmModal.addEventListener('cancel', (e) => { e.preventDefault(); dismiss(); });
+        gmModal.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); dismiss(); } });
+    }
+
+    /** @returns {Promise<string|null>} the chosen sprite, or null if dismissed */
+    function pickSprite(names) {
+        // showModal() on an already-open dialog throws, and the second caller
+        // would be answered by the first one's list.
+        if (gmModal.open) return Promise.resolve(null);
+
+        return new Promise((resolve) => {
+            const settle = (name) => {
+                answer = null;
+                gmModal.close();
+                resolve(name);
+            };
+            answer = settle;
+
+            gmList.textContent = '';
+            for (const name of names) {
+                const b = document.createElement('button');
+                b.className = 'gm-sprite';
+                b.textContent = name;
+                b.addEventListener('click', () => { if (answer) settle(name); });
+                gmList.append(b);
+            }
+            gmModal.showModal();
+        });
+    }
+
+    async function exportGameMaker(t) {
+        const f = fs();
+        const sprite = projectUI().currentProject().sprites[0];
+
+        let spriteName, yyText;
+        try {
+            const entries = await f.readDir(t.root);
+            const yyp = entries.find(e => !e.is_dir && /\.yyp$/i.test(e.name));
+            if (!yyp) { toast('no .yyp in that folder'); return; }
+
+            const names = GM.spriteNames(await f.readText(join(t.root, yyp.name)));
+            if (!names.length) { toast('that project has no sprites'); return; }
+
+            spriteName = await pickSprite(names);
+            if (!spriteName) return;                 // cancelled
+
+            yyText = await f.readText(join(t.root, `sprites/${spriteName}/${spriteName}.yy`));
+        } catch (e) {
+            toast('could not read the project');
+            console.error(`reading ${t.root}:`, e);
+            return;
+        }
+
+        let plan;
+        try {
+            plan = GM.plan({
+                yyText, spriteName,
+                frames: sprite.frames, w: sprite.w, h: sprite.h,
+                originX: sprite.origin.x, originY: sprite.origin.y,
+            });
+        } catch (e) {
+            // A frame-count mismatch says both numbers and refuses; that is
+            // worth showing rather than reducing to "could not export".
+            toast(e.message);
+            console.error('could not plan export:', e);
+            return;
+        }
+
+        try {
+            // Each frame is named twice by the plan: once as the frame and
+            // once as its layers/ copy. Encoding once and writing the same
+            // bytes twice makes them byte-identical rather than merely equal —
+            // and a layers/ copy that does not match is the sprite that looks
+            // right on disk and renders blank in the IDE.
+            const encoded = new Map();
+            for (const w of plan.writes) {
+                if (!encoded.has(w.frame)) {
+                    const canvas = sheet.framesToSheet(
+                        [sprite.frames[w.frame]], sprite.w, sprite.h, 1);
+                    encoded.set(w.frame, await png.bytes(canvas));
+                }
+                await f.writeInRoot(t.root, w.path, encoded.get(w.frame));
+            }
+            // Last, and only if something actually changed: the .yy is the file
+            // GameMaker reads first, so writing it before its frames would
+            // leave a moment where it describes pixels that are not there yet.
+            if (plan.yy) await f.writeTextInRoot(t.root, plan.yy.path, plan.yy.text);
+        } catch (e) {
+            toast('could not export');
+            console.error(`export to ${t.root} failed:`, e);
+            return;
+        }
+
+        if (exportOutput) {
+            exportOutput.value = [
+                `// sprite//forge -> ${t.label} (gamemaker)`,
+                `// ${t.root}`,
+                `//   ${spriteName}: ${sprite.frames.length} frame` +
+                    `${sprite.frames.length === 1 ? '' : 's'}, ` +
+                    `${plan.writes.length} files` +
+                    `${plan.yy ? ' + the .yy' : ' (.yy already correct)'}`,
+                '//',
+                `// run tools/import_sprite_sheet.py --check to confirm`,
+            ].join('\n');
+        }
+
+        for (const warning of plan.warnings) console.warn(warning);
+        toast(`exported ${spriteName}`);
+    }
+
     // ── init ────────────────────────────────────────────────
 
     if (kindSelect) {
@@ -216,6 +351,6 @@
         render,
         targets: () => (store ? store.targets : []),
         // For tests: drive the same paths the buttons do.
-        add: addTarget, exportTo, reload: loadStore,
+        add: addTarget, exportTo, exportGameMaker, reload: loadStore,
     };
 }());
