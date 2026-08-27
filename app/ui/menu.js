@@ -36,6 +36,11 @@
             if (!await P().confirmDiscard('Quit')) return;
             fs().quit();
         },
+        // Proxied to the sidebar buttons they name, the same way the View
+        // items are: the modal and the exporter keep one caller each.
+        'file:templates': () => document.getElementById('template-btn').click(),
+        'file:import': () => document.getElementById('import-btn').click(),
+        'file:export': () => document.getElementById('export-btn').click(),
         'edit:undo': () => E().undo(),
         'edit:redo': () => E().redo(),
         'view:zoom-in': () => document.getElementById('zoom-in').click(),

@@ -680,19 +680,24 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
 
 .desktop .menu-title {
     font-family: 'Press Start 2P', monospace;
-    font-size: 7px;
+    font-size: 8px;
     letter-spacing: 0.08em;
     color: var(--dim);
     background: none;
     border: none;
-    padding: 0 10px;
+    padding: 0 12px;
     cursor: pointer;
+    transition: color 0.1s, background 0.1s;
 }
 
-.desktop .menu-title:hover,
+.desktop .menu-title:hover { color: var(--text); background: var(--surface); }
+
+/* The open title takes the accent, and the drop below it is topped with the
+   same colour, so the two read as one shape rather than a button and a box
+   that happen to be near each other. */
 .desktop .menu.open .menu-title {
-    color: var(--text);
-    background: var(--surface);
+    color: var(--bg);
+    background: var(--rose);
 }
 
 .desktop .menu-drop {
@@ -701,35 +706,45 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
     top: 100%;
     left: 0;
     z-index: 40;
-    min-width: 210px;
-    padding: 4px 0;
+    min-width: 248px;
+    padding: 5px 0;
     background: var(--panel);
     border: 1px solid var(--border);
-    /* The drop sits over the canvas, which is a checkerboard. Without a shadow
-       its edge disappears into the squares. */
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+    border-top: 2px solid var(--rose);
+    /* A hard offset shadow rather than a blurred one. Everything else here is
+       pixels with no antialiasing in sight, and a soft glow under the one
+       floating panel looks borrowed from a different program. It also keeps
+       the edge legible over the canvas checkerboard. */
+    box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55);
 }
 
 .desktop .menu.open .menu-drop { display: block; }
 
 .desktop .menu-drop button {
+    position: relative;
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 24px;
+    gap: 28px;
     width: 100%;
     font-family: 'Courier Prime', monospace;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
+    /* Uppercase to match every other button in the app; the labels stay
+       readable in the markup. */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: var(--text);
     background: none;
     border: none;
-    padding: 5px 12px 5px 26px;
+    border-left: 2px solid transparent;
+    padding: 5px 14px 5px 24px;
     text-align: left;
     cursor: pointer;
 }
 
 .desktop .menu-drop button:hover:not(:disabled) {
     background: var(--rose);
+    border-left-color: var(--cyan);
     color: var(--bg);
 }
 
@@ -744,26 +759,28 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
    stay grey on a rose row. */
 .desktop .menu-drop button i {
     font-style: normal;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
+    letter-spacing: 0;
     color: var(--dim);
+    text-transform: none;
 }
 
 .desktop .menu-drop button:hover:not(:disabled) i { color: var(--bg); }
 
-/* The checkmark column is why the items are indented 26px on the left: the
-   tick appears and disappears without the label moving. */
+/* The checkmark column is why the items are indented on the left: the tick
+   appears and disappears without the label moving. */
 .desktop .menu-drop button.checked::before {
     content: '✓';
     position: absolute;
-    left: 10px;
-    font-size: 0.82rem;
+    left: 9px;
+    font-size: 0.8rem;
 }
 
-.desktop .menu-drop button { position: relative; }
-
+/* Inset, so the rule reads as a divider between groups rather than a line
+   cutting the whole panel in half. */
 .desktop .menu-drop hr {
     height: 0;
-    margin: 4px 0;
+    margin: 5px 12px;
     border: 0;
     border-top: 1px solid var(--border);
 }
