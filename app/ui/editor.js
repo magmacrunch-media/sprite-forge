@@ -72,17 +72,7 @@ let zoom = 16;
 // on resize but not on every repaint. null until the stage has a height.
 let fittedFor = null;
 let mirrorX = false, onionSkin = false, gridOn = true, dockOn = true;
-let undoStack = [], redoStack = [], painting = false, pendingSnap = null;
-
-// Every change ever made, counted. This is the dirty signal rather than the
-// undo depth, because with more than one sprite the depth is no longer a
-// property of the project: switching sprites clears the history, and an edit
-// to the sprite you are not looking at still has to count as unsaved work.
-//
-// The cost is that undoing back to exactly the saved state no longer clears
-// the dirty marker. Overstating unsaved work is the safe direction to be
-// wrong in.
-let changes = 0;
+let painting = false;
 let lastPos = null;             // previous pencil/erase position, for stroke interpolation
 let shapeStart = null, shapeEnd = null;
 let anim = { playing: false, fps: 8, scale: 4, index: 0, timer: null };
@@ -150,31 +140,6 @@ function currentState() {
   }));
 }
 
-function pushUndo(state) {
-  changes++;
-  undoStack.push(state);
-  if (undoStack.length > 100) undoStack.shift();
-  redoStack.length = 0;
-}
-
-function snapshot() { pushUndo(currentState()); }
-
-// A recolour reaches every sprite, so its undo entry has to carry every sprite.
-// Only these entries do: a stroke changes one sprite and snapshotting the rest
-// on every mousedown would put the whole project on the stack a hundred times
-// over. The cost is paid by the operations that earn it.
-function snapshotProject() {
-  const s = currentState();
-  const su = spritesUI();
-  if (su) s.sprites = su.capture();
-  pushUndo(s);
-}
-
-// Strokes snapshot once on mousedown and commit only if a pixel changed,
-// so Ctrl+Z undoes the whole stroke and no-op clicks don't pollute the stack.
-function beginStroke() { pendingSnap = currentState(); }
-function commitStroke() { if (pendingSnap) { pushUndo(pendingSnap); pendingSnap = null; } }
-
 function restore(s) {
   frames = s.frames; frameIndex = s.frameIndex; origin = s.origin;
   frameW = s.frameW; frameH = s.frameH;
@@ -187,30 +152,44 @@ function restore(s) {
   renderPalette(); updatePaletteActive(); renderSlots();
 }
 
-// The state being left has to carry the sprite list whenever the state being
-// entered does, or undoing a recolour would strand redo with no way back to it.
-function leaving(s) {
-  const now = currentState();
+// The stack itself is the kit's (kit/history.js). What stays here is what only
+// this app knows: what a state IS, how to put one back, and the one case where
+// the state being left has to carry more than a plain snapshot.
+const history = MagmaKit.history.create({
+  cap: 100,
+  snapshot: currentState,
+  restore,
+  // The state being left has to carry the sprite list whenever the state being
+  // entered does, or undoing a recolour would strand redo with no way back to
+  // it.
+  leaving: (s) => {
+    const now = currentState();
+    const su = spritesUI();
+    if (s.sprites && su) now.sprites = su.capture();
+    return now;
+  },
+});
+
+function snapshot() { history.push(); }
+
+// A recolour reaches every sprite, so its undo entry has to carry every sprite.
+// Only these entries do: a stroke changes one sprite and snapshotting the rest
+// on every mousedown would put the whole project on the stack a hundred times
+// over. The cost is paid by the operations that earn it.
+function snapshotProject() {
+  const s = currentState();
   const su = spritesUI();
-  if (s.sprites && su) now.sprites = su.capture();
-  return now;
+  if (su) s.sprites = su.capture();
+  history.push(s);
 }
 
-function undo() {
-  if (!undoStack.length) return;
-  changes++;
-  const s = undoStack.pop();
-  redoStack.push(leaving(s));
-  restore(s);
-}
+// Strokes snapshot once on mousedown and commit only if a pixel changed, so
+// Ctrl+Z undoes the whole stroke and no-op clicks don't pollute the stack.
+const beginStroke = () => history.beginStroke();
+const commitStroke = () => history.commitStroke();
 
-function redo() {
-  if (!redoStack.length) return;
-  changes++;
-  const s = redoStack.pop();
-  undoStack.push(leaving(s));
-  restore(s);
-}
+const undo = () => history.undo();
+const redo = () => history.redo();
 
 // ── Canvas rendering ────────────────────────────────────
 
@@ -453,19 +432,19 @@ canvas.addEventListener('mouseup', () => {
     shapeStart = null; shapeEnd = null;
     render(); if (changed) renderSheet();
   }
-  painting = false; lastPos = null; pendingSnap = null;
+  painting = false; lastPos = null; history.cancelStroke();
 });
 
 canvas.addEventListener('mouseleave', () => {
   if (shapeStart) { shapeStart = null; shapeEnd = null; render(); }
-  painting = false; lastPos = null; pendingSnap = null;
+  painting = false; lastPos = null; history.cancelStroke();
 });
 
 canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault(); const c = pixelAt(e);
   beginStroke();
   if (writePixel(frame(), c.x, c.y, null)) { render(); renderSheet(); }
-  pendingSnap = null;
+  history.cancelStroke();
 });
 
 // ── Shape + line plotting ───────────────────────────────
@@ -953,13 +932,14 @@ function recolorSlot(name, newBase) {
   renderSlots();
 }
 
+// The three ways out — the ×, CANCEL, and a click on the backdrop — are the
+// kit's (kit/modal.js). Four copies of that wiring used to live in this app.
+const templateUI = MagmaKit.modal.wire(templateModal, { closers: ['template-cancel'] });
+
 document.getElementById('template-btn').addEventListener('click', () => {
   renderTemplateGrid();
-  templateModal.showModal();
+  templateUI.open();
 });
-document.getElementById('template-cancel').addEventListener('click', () => templateModal.close());
-templateModal.querySelector('.modal-close').addEventListener('click', () => templateModal.close());
-templateModal.addEventListener('click', (e) => { if (e.target === templateModal) templateModal.close(); });
 
 // ── Replace colour ──────────────────────────────────────
 
@@ -970,13 +950,12 @@ document.getElementById('replace-btn').addEventListener('click', () => {
 
 // ── Import ──────────────────────────────────────────────
 
+const importUI = MagmaKit.modal.wire(importModal, { closers: ['import-cancel'] });
+
 document.getElementById('import-btn').addEventListener('click', () => {
   importFile.value = ''; importW.value = frameW; importH.value = frameH;
-  importModal.showModal();
+  importUI.open();
 });
-document.getElementById('import-cancel').addEventListener('click', () => importModal.close());
-importModal.querySelector('.modal-close').addEventListener('click', () => importModal.close());
-importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.close(); });
 
 // The toast carries the message and the border says which field it is about —
 // the import form has two, so "smaller than one 32×32 frame" needs to point at
@@ -1225,13 +1204,11 @@ if (themeDelete) themeDelete.addEventListener('click', () => {
 
 const sections = [...document.querySelectorAll('#sidebar details[data-section]')];
 
-function readPrefs(key) {
-  try { return JSON.parse(localStorage.getItem(key)) || null; } catch { return null; }
-}
-
-function writePrefs(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-}
+// localStorage with every failure swallowed — private mode throws on write, a
+// corrupt value throws on parse, and neither is a reason to stop working. From
+// the kit (kit/prefs.js).
+const readPrefs = MagmaKit.prefs.read;
+const writePrefs = MagmaKit.prefs.write;
 
 function loadSectionPrefs() {
   const prefs = readPrefs(SECTION_KEY);
@@ -1403,24 +1380,33 @@ window.SpriteForge.editor = {
    * sprite's, so they stay exactly as they are.
    */
   swapSprite(sprite) {
-    undoStack.length = 0;
-    redoStack.length = 0;
-    pendingSnap = null;
+    history.clear();
     putSprite(sprite);
     redrawEverything();
   },
 
-  /** Bumped on every change, so project-ui can tell dirty from saved. Never
-   *  goes down, so switching sprites cannot make edits look saved. */
-  revision() { return changes; },
+  /**
+   * Bumped on every change, so project-ui can tell dirty from saved.
+   *
+   * This is the dirty signal rather than the undo depth, because with more
+   * than one sprite the depth is no longer a property of the project:
+   * switching sprites clears the history, and an edit to the sprite you are
+   * not looking at still has to count as unsaved work. So it never goes down,
+   * and clear() above deliberately does not reset it.
+   *
+   * The cost is that undoing back to exactly the saved state no longer clears
+   * the dirty marker. Overstating unsaved work is the safe direction to be
+   * wrong in.
+   */
+  revision() { return history.revision(); },
 
   // The Edit menu drives the same two functions Ctrl+Z and Ctrl+Y do. They go
   // through this seam rather than the menu reaching for the module scope,
   // which is the point of having one door. canUndo/canRedo are what let the
   // menu grey its own items out instead of offering a no-op.
   undo, redo,
-  canUndo() { return undoStack.length > 0; },
-  canRedo() { return redoStack.length > 0; },
+  canUndo() { return history.canUndo(); },
+  canRedo() { return history.canRedo(); },
 };
 
 // ── Init ────────────────────────────────────────────────

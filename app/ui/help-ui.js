@@ -21,6 +21,14 @@
     const versionEl = document.getElementById('app-version');
     const creditsVersion = document.getElementById('credits-version');
 
+    // The three ways out — the ×, the button in the actions row, and a click
+    // on the backdrop — are the kit's (kit/modal.js), which is where the other
+    // three copies of them in this app now come from too.
+    const modals = {
+        reference: MagmaKit.modal.wire(reference, { closers: ['reference-close'] }),
+        credits: MagmaKit.modal.wire(credits, { closers: ['credits-close'] }),
+    };
+
     function open(dlg) {
         // Only one at a time: both are reachable from the same menu, and
         // showModal() on an already-open dialog throws.
@@ -28,16 +36,7 @@
             if (other !== dlg && other.open) other.close();
         if (dlg === credits && creditsVersion && versionEl)
             creditsVersion.textContent = versionEl.textContent;
-        if (!dlg.open) dlg.showModal();
-    }
-
-    // The same three ways out every other modal in this app offers: the ×, the
-    // button in the actions row, and a click on the backdrop.
-    for (const [dlg, closeId] of [[reference, 'reference-close'], [credits, 'credits-close']]) {
-        dlg.querySelector('.modal-close').addEventListener('click', () => dlg.close());
-        const btn = document.getElementById(closeId);
-        if (btn) btn.addEventListener('click', () => dlg.close());
-        dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+        modals[dlg === credits ? 'credits' : 'reference'].open();
     }
 
     const link = document.getElementById('credits-link');

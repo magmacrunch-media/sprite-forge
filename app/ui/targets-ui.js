@@ -221,54 +221,26 @@
     const gmModal = document.getElementById('gm-modal');
     const gmList = document.getElementById('gm-list');
 
-    // Whoever is waiting on the dialog, or null when it is not up. Every way
-    // out goes through it, so the promise is settled exactly once no matter
-    // which one the user takes.
-    //
-    // Deliberately NOT driven by the dialog's own close event. That event is
-    // the obvious hook and it is one dependency too many: settling a promise
-    // on it means any environment that does not raise it leaves the caller
-    // waiting for an answer that never comes, with the dialog already gone
-    // from the screen. Closing is ours to do here, so the answer is ours to
-    // deliver too.
-    let answer = null;
-
-    const dismiss = () => { if (answer) answer(null); };
-
-    if (gmModal) {
-        gmModal.querySelector('.modal-close').addEventListener('click', dismiss);
-        document.getElementById('gm-cancel').addEventListener('click', dismiss);
-        gmModal.addEventListener('click', (e) => { if (e.target === gmModal) dismiss(); });
-        // Escape closes a <dialog> natively and fires cancel first. Both are
-        // handled: cancel for the normal path, keydown for anything that
-        // closes without raising it.
-        gmModal.addEventListener('cancel', (e) => { e.preventDefault(); dismiss(); });
-        gmModal.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); dismiss(); } });
-    }
+    // A question-shaped modal: every way out settles the same promise exactly
+    // once, and dismissal answers null. The kit (kit/modal.js) owns that
+    // wiring, including the reason it is deliberately NOT driven by the
+    // dialog's own close event — settling on that event means any environment
+    // that does not raise it leaves the caller waiting for an answer that never
+    // comes, with the dialog already gone from the screen. Closing is ours to
+    // do, so the answer is ours to deliver.
+    const gmUI = gmModal && MagmaKit.modal.asker(gmModal, { closers: ['gm-cancel'] });
 
     /** @returns {Promise<string|null>} the chosen sprite, or null if dismissed */
     function pickSprite(names) {
-        // showModal() on an already-open dialog throws, and the second caller
-        // would be answered by the first one's list.
-        if (gmModal.open) return Promise.resolve(null);
-
-        return new Promise((resolve) => {
-            const settle = (name) => {
-                answer = null;
-                gmModal.close();
-                resolve(name);
-            };
-            answer = settle;
-
+        return gmUI.ask((settle) => {
             gmList.textContent = '';
             for (const name of names) {
                 const b = document.createElement('button');
                 b.className = 'gm-sprite';
                 b.textContent = name;
-                b.addEventListener('click', () => { if (answer) settle(name); });
+                b.addEventListener('click', () => settle(name));
                 gmList.append(b);
             }
-            gmModal.showModal();
         });
     }
 
