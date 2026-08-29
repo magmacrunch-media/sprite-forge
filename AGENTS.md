@@ -73,6 +73,28 @@ launch. That mark cannot come from an inline script — the desktop CSP is
 `default-src 'self'` with no `script-src`, so inline is blocked. It touches no
 DOM tree and no core export, so running first costs nothing.
 
+## The workspace is height-constrained, and stays that way
+
+`#canvas-panel` is a three-row grid — toolbar, `#canvas-stage`, `#dock` — and the
+stage is the only row that gives. Add a fourth sibling and you are back to the
+layout this replaced, where the canvas was a sibling of the previews and pushed
+them off the bottom of the screen: a 128×128 sprite at the default 16× is a
+2048px canvas, which left 1893px of the column unreachable and the preview about
+1700px below the fold. Anything new belongs in the dock or the sidebar.
+
+Zoom fits on the way in. `sizeCanvas()` shrinks to the largest `ZOOM_STEPS` entry
+that fits, once per sprite size and **only downward** — growing to fit would
+fight anyone who has zoomed in, and zooming in past the window is how you draw a
+pixel. `setZoom` deliberately does not refit, so manual zoom survives.
+
+The sidebar is an accordion: one `details[data-section]` open at a time, because
+the sections total ~1400px and the column is 600–950px. Do not ship a section
+with `open` in the markup. The palette is the exception and is not a section at
+all — it is a `.side-block` above them, always visible, because every tool has a
+single-key shortcut and a swatch has none, so it is the one panel that cannot
+afford to be the thing you just closed. Keep it small; that is why THEME &
+REPLACE is its own section rather than living under it.
+
 ## Not ES modules, deliberately
 
 Everything is a classic script attaching to `window.SpriteForge`. The website is

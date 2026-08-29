@@ -45,9 +45,11 @@
         'edit:redo': () => E().redo(),
         'view:zoom-in': () => document.getElementById('zoom-in').click(),
         'view:zoom-out': () => document.getElementById('zoom-out').click(),
+        'view:zoom-fit': () => document.getElementById('zoom-fit').click(),
         'view:grid': (btn) => proxied(btn).click(),
         'view:mirror': (btn) => proxied(btn).click(),
         'view:onion': (btn) => proxied(btn).click(),
+        'view:dock': (btn) => proxied(btn).click(),
     };
 
     // ── open / closed ───────────────────────────────────────

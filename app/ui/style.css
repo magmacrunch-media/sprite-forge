@@ -36,16 +36,31 @@ body {
 
 /* ── WORKSPACE ── */
 
+/* Three rows: toolbar, stage, dock. The stage is the only one that gives, so
+   the dock stays on screen no matter how big the sprite is — which is the whole
+   point of it. It was a single scrolling column of siblings before, and a
+   128x128 sprite put the previews ~1700px below the fold. */
 #canvas-panel {
     flex: 1;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 14px;
     padding: 20px;
+    overflow: hidden;
+}
+
+#canvas-stage {
+    min-height: 0;
+    display: flex;
     overflow: auto;
 }
+
+/* margin:auto rather than align-items/justify-content, which centre by
+   overflowing equally in both directions and put the top-left of an
+   oversized canvas out of reach of its own scrollbars. */
+#canvas-stage > #frame-canvas { margin: auto; }
 
 /* ── CANVAS TOOLBAR ── */
 
@@ -98,13 +113,35 @@ body {
 
 #sheet-canvas { cursor: pointer; }
 
-.preview-row {
+/* ── DOCK ── */
+
+#dock {
     display: flex;
     align-items: flex-start;
-    justify-content: center;
-    gap: 24px;
-    flex-wrap: wrap;
+    gap: 20px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow-x: auto;
+}
+
+#dock[hidden] { display: none; }
+
+/* The previews are sized in pixels by the editor — a 128px sprite at 4x is a
+   512px canvas — so the dock caps how tall they are allowed to draw. The
+   backing store keeps its size; only the presentation shrinks, and the sheet's
+   click-to-select reads getBoundingClientRect, so hit testing follows. */
+#dock #anim-canvas,
+#dock #sheet-canvas {
+    max-height: 108px;
     max-width: 100%;
+    width: auto;
+    height: auto;
+}
+
+#dock #export-panel {
+    flex: 1;
+    min-width: 220px;
 }
 
 .preview-block {
@@ -146,6 +183,23 @@ body {
 body.resizing { cursor: col-resize; user-select: none; }
 
 /* ── COLLAPSIBLE SECTIONS ── */
+
+/* The palette, which sits outside the accordion. Same rhythm as a section, but
+   no summary and nothing to collapse — its label is a label, not a control. */
+.side-block {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+}
+
+.block-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--rose);
+    letter-spacing: 0.05em;
+    padding: 3px 0;
+    margin-bottom: 8px;
+}
 
 .side-section {
     border-bottom: 1px solid var(--border);
@@ -577,7 +631,22 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
     .workspace { flex-direction: column; }
     #sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); }
     #sidebar-resizer { display: none; }
-    #canvas-panel { padding: 12px; }
+
+    /* Stacked, the column has no fixed height to divide between three rows, so
+       the grid gives the stage zero and clips the canvas out of existence.
+       Below this width the page is a "use a wider screen" notice anyway, so it
+       goes back to flowing and scrolling as one column. */
+    #canvas-panel {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow: auto;
+    }
+    /* flex:none, or the stage inherits min-height:0 from the desktop rule,
+       shrinks to a few pixels as a flex item, and clips the canvas anyway. */
+    #canvas-stage { overflow: visible; width: 100%; min-height: auto; flex: none; }
+    #dock { width: 100%; flex: none; }
 }
 
 /* ── Desktop build: drop the website's chrome ────────────
