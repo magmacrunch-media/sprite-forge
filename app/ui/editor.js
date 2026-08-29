@@ -1038,7 +1038,12 @@ function syncThemeButtons() {
   if (themeDelete) themeDelete.disabled = !(t && t.custom);
 }
 
-function applyTheme(id) {
+// Read at call time rather than captured: project-ui.js loads after this file,
+// so there is nothing to capture yet, and in a build without it the theme still
+// has to change the swatches.
+const projectUI = () => window.SpriteForge.projectUI;
+
+async function applyTheme(id) {
   const t = PAL.find(id, myThemes());
   if (!t) return;
   const colors = PAL.normalize(t.colors, MAX_SWATCHES);
@@ -1046,11 +1051,24 @@ function applyTheme(id) {
   // undefined, and drawing would then write undefined into the frames and on
   // into the .forge file.
   if (!colors.length) { Toast.show('THAT THEME HAS NO USABLE COLOURS'); return; }
-  snapshot();
-  palette = colors;
-  selectedSwatch = 0;
-  selectedColor = palette[0];
-  renderPalette(); updatePaletteActive(); updateColorChip();
+
+  // A theme is the project's, not this sprite's, so recolouring is answered
+  // over in project-ui.js where the sprite list and the dialogs are. It comes
+  // back false when it did not recolour — declined, nothing drawn, or no
+  // project layer at all — and then this does what applying a theme has
+  // always done and swaps the swatches on their own. When it did recolour it
+  // has already put the new palette in through setSprite, and doing it again
+  // here would cost a second undo step for nothing.
+  const ui = projectUI();
+  const recoloured = ui && ui.retheme ? await ui.retheme(colors, t.name) : false;
+  if (!recoloured) {
+    snapshot();
+    palette = colors;
+    selectedSwatch = 0;
+    selectedColor = palette[0];
+    renderPalette(); updatePaletteActive(); updateColorChip();
+  }
+
   // Only one vendored theme is bigger than the palette, but saying so beats
   // handing over the first thirty-two of forty-nine without a word.
   Toast.show(PAL.truncates(t, MAX_SWATCHES)

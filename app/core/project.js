@@ -66,6 +66,52 @@ window.SpriteForge.project = (function () {
     }
 
     /**
+     * The same project with every colour rewritten through `map`.
+     *
+     * Palette, slots and pixels together, because a colour that moves has to
+     * move everywhere. A swatch left behind would draw a colour nothing else
+     * in the project uses, and a slot left behind would recolour nothing.
+     *
+     * `palette` overrides what the swatches become, for the caller that is
+     * replacing them outright rather than moving them.
+     */
+    function remap(p, map, palette) {
+        const at = (hex) => (hex && map[hex]) || hex;
+        return {
+            palette: palette ? [...palette] : p.palette.map(at),
+            slots: p.slots
+                ? Object.fromEntries(Object.entries(p.slots).map(([k, v]) => [k, at(v)]))
+                : null,
+            template: p.template || null,
+            sprites: p.sprites.map(s => ({
+                ...s,
+                origin: { ...s.origin },
+                frames: s.frames.map(f => f.map(row => row.map(px => (px ? at(px) : null)))),
+            })),
+        };
+    }
+
+    /**
+     * The same project drawn in `palette`, every colour snapped to its nearest
+     * entry.
+     *
+     * A theme used to replace the swatches and leave every pixel where it was,
+     * which meant the palette stopped describing the art the moment it was
+     * applied, and the project quietly carried both sets of colours. Nearest
+     * rather than by index: these themes are arbitrary lists, so swatch 5 and
+     * theme colour 5 have nothing to do with each other, while nearest keeps
+     * a dark outline dark and the art readable. It also answers for pixels
+     * that were never in the palette and for a theme of a different length.
+     */
+    function retheme(p, palette) {
+        const to = [...(palette || [])];
+        if (!to.length) return p;
+        const map = {};
+        for (const hex of colorsOf(p)) map[hex] = nearestHex(hex, to);
+        return remap(p, map, to);
+    }
+
+    /**
      * The same project using at most `limit` colours, by snapping the ones it
      * drops onto the nearest ones it keeps.
      *
@@ -108,20 +154,9 @@ window.SpriteForge.project = (function () {
 
         const snap = {};
         for (const hex of inPixels) if (!kept.has(hex)) snap[hex] = nearestHex(hex, keep);
-        const map = (hex) => (hex && snap[hex]) || hex;
-
-        return {
-            palette: p.palette.filter(h => kept.has(h)),
-            slots: p.slots
-                ? Object.fromEntries(Object.entries(p.slots).map(([k, v]) => [k, map(v)]))
-                : null,
-            template: p.template || null,
-            sprites: p.sprites.map(s => ({
-                ...s,
-                origin: { ...s.origin },
-                frames: s.frames.map(f => f.map(row => row.map(px => (px ? map(px) : null)))),
-            })),
-        };
+        // The palette is filtered rather than mapped: a swatch that did not fit
+        // would otherwise come back as a second copy of its nearest neighbour.
+        return remap(p, snap, p.palette.filter(h => kept.has(h)));
     }
 
     /**
@@ -275,5 +310,5 @@ window.SpriteForge.project = (function () {
         return deserialize(o);
     }
 
-    return { FORMAT, ALPHABET, TRANSPARENT, blank, newSprite, uniqueName, colorsOf, reduce, serialize, deserialize, stringify, parse, validate };
+    return { FORMAT, ALPHABET, TRANSPARENT, blank, newSprite, uniqueName, colorsOf, remap, retheme, reduce, serialize, deserialize, stringify, parse, validate };
 })();

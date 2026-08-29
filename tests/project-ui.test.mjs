@@ -65,6 +65,9 @@ function mount(opts = {}) {
     // Absent entirely unless the case supplies one, so the no-confirm-available
     // branch is a real state and not just an untested `if`.
     if (opts.confirm) sandbox.SpriteForge.fs.confirm = opts.confirm;
+    // The web build has no fs at all, and the theme recolour runs there too.
+    if (opts.noFs) delete sandbox.SpriteForge.fs;
+    if (opts.webConfirm) sandbox.confirm = opts.webConfirm;
 
     loadUI(sandbox, 'project-ui.js');
     return {
@@ -233,5 +236,99 @@ export default async function (SF) {
 
     test('a project inside the limit is never asked about', () => {
         eq(good.adopted, [], 'no reduction offered or applied');
+    });
+
+    // ── applying a theme ────────────────────────────────────
+    //
+    // A theme is the project's, not the sprite on screen's, so a theme that
+    // recoloured only the active sprite would leave the others drawn in
+    // colours no swatch points at any more. It asks first because undo lives
+    // in the editor and reaches only that one sprite.
+
+    const THEME = ['#000000', '#ff0000', '#00ff00', '#0000ff'];
+
+    let themeAsked = null;
+    const themed = mount({
+        sprites: spread(3),
+        activeName: 's1',
+        confirm: async (q) => { themeAsked = q; return true; },
+    });
+    const themedOk = await themed.ui.retheme(THEME, 'Dracula');
+
+    const themeNo = mount({ sprites: spread(3), confirm: no });
+    const themeNoOk = await themeNo.ui.retheme(THEME, 'Dracula');
+
+    const themeMute = mount({ sprites: spread(3) });          // nothing to ask through
+    const themeMuteOk = await themeMute.ui.retheme(THEME, 'Dracula');
+
+    const themeWeb = mount({ sprites: spread(3), noFs: true, webConfirm: () => true });
+    const themeWebOk = await themeWeb.ui.retheme(THEME, 'Dracula');
+
+    // Already drawn entirely in the theme: nothing to move, nothing to ask.
+    const already = mount({
+        sprites: [{
+            name: 'dag', w: 2, h: 1, origin: { x: 0, y: 0 }, fps: 8,
+            frames: [[['#000000', '#ff0000']]],
+        }],
+        palette: ['#000000', '#ff0000'],
+        confirm: async () => { throw new Error('should not have asked'); },
+    });
+    const alreadyOk = await already.ui.retheme(THEME, 'Dracula');
+
+    const empty = mount({
+        sprites: spread(2),
+        confirm: async () => { throw new Error('should not have asked'); },
+    });
+    const emptyOk = await empty.ui.retheme([], 'Nothing');
+
+    test('applying a theme asks, naming the sprites and what will move', () => {
+        ok(themeAsked.includes('all 3 sprites'), `names the scope: ${JSON.stringify(themeAsked)}`);
+        ok(themeAsked.includes('Dracula'), 'and the theme');
+        ok(/\d+ colours will move/.test(themeAsked), 'and how much moves');
+        ok(themeAsked.includes('Undo only covers the sprite on screen'), 'and what undo will not do');
+        ok(/[Cc]ancel to change the swatches/.test(themeAsked), 'and what declining does instead');
+    });
+
+    test('accepting redraws every sprite in the theme', () => {
+        eq(themedOk, true, 'it reports that it recoloured');
+        const live = { palette: themed.adopted[0].palette, sprites: themed.sprites() };
+        eq(SF.project.colorsOf(live).length, THEME.length, 'the project holds only the theme');
+        for (const s of themed.sprites())
+            for (const px of s.frames.flat(2))
+                ok(px === null || THEME.includes(px), `${s.name}: ${px} is a theme colour`);
+    });
+
+    test('the theme reaches the editor as the new palette', () => {
+        eq(themed.adopted.length, 1, 'one adopt');
+        eq(themed.adopted[0].palette, THEME, 'the editor is given the theme');
+    });
+
+    test('a theme does not move you to another sprite either', () => {
+        eq(themed.selected, [1], 's1 was active, and s1 is active after');
+    });
+
+    test('declining leaves every pixel alone and says so by returning false', () => {
+        eq(themeNoOk, false, 'so the caller swaps the swatches on its own');
+        eq(themeNo.adopted, [], 'nothing was recoloured');
+    });
+
+    test('with nothing to ask through, a theme does not recolour', () => {
+        eq(themeMuteOk, false, 'no silent rewrite of the art');
+        eq(themeMute.adopted, [], 'nothing adopted');
+    });
+
+    test('the web build, which has no fs, can still be asked', () => {
+        eq(themeWebOk, true, 'the browser confirm carries it');
+        eq(themeWeb.adopted.length, 1, 'and it recoloured');
+    });
+
+    test('a project already in the theme is not asked about at all', () => {
+        eq(alreadyOk, false, 'nothing to move');
+        eq(already.adopted, [], 'and nothing done');
+    });
+
+    test('an empty theme is refused rather than wiping the art', () => {
+        eq(emptyOk, false, 'nothing to apply');
+        eq(empty.adopted, [], 'and nothing applied');
     });
 }

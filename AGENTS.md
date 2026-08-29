@@ -48,6 +48,12 @@ for the whole list when saving; targets-ui reads the current project from
 project-ui; menu.js dispatches to all of them and implements nothing itself, so
 it loads last.
 
+The one call that runs against that order is the theme dropdown: it lives in
+editor.js, but applying a theme recolours every sprite, so it asks
+project-ui.js to do it and falls back to swapping the swatches alone when
+there is no answer. Read at call time, never captured — project-ui.js does
+not exist yet when editor.js is evaluated.
+
 The sprite being edited lives in the editor and nowhere else — the editor is
 the only thing that knows about a stroke half finished on the canvas. The rest
 of the project's sprites live in sprites-ui as plain data, which is why every

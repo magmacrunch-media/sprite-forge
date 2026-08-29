@@ -288,6 +288,103 @@ export default function (SF) {
         eq(P.colorsOf(r).length, 1, 'and the two colours became one');
     });
 
+    // ── retheme ─────────────────────────────────────────────
+    //
+    // Applying a theme used to swap the swatches and leave every pixel alone,
+    // so the palette stopped describing the art and the project carried both
+    // sets of colours at once. It now redraws the project in the theme.
+
+    test('retheme moves every colour onto the theme, and nothing else remains', () => {
+        const P = SF.project;
+        const p = spread(2, 20);
+        const theme = ['#000000', '#ff0000', '#00ff00', '#0000ff'];
+        const r = P.retheme(p, theme);
+        eq(r.palette, theme, 'the palette is the theme, exactly');
+        for (const px of r.sprites.flatMap(s => s.frames.flat(2)))
+            ok(px === null || theme.includes(px), `${px} is a theme colour`);
+        eq(P.colorsOf(r).length, theme.length, 'and the project holds only the theme');
+    });
+
+    test('retheme redraws every sprite, not just the first', () => {
+        const P = SF.project;
+        const p = spread(4, 8);
+        const theme = ['#111111', '#eeeeee'];
+        const r = P.retheme(p, theme);
+        for (const s of r.sprites) {
+            const used = new Set(s.frames.flat(2).filter(Boolean));
+            ok(used.size > 0, `${s.name} still has pixels`);
+            for (const px of used) ok(theme.includes(px), `${s.name}: ${px} is themed`);
+        }
+    });
+
+    test('retheme snaps to the nearest, so dark stays dark', () => {
+        const P = SF.project;
+        const s = P.newSprite('dag', 3, 1);
+        s.frames = [[['#0a0a0a', '#f5f5f5', '#c00000']]];
+        const r = P.retheme({ palette: [], slots: null, template: null, sprites: [s] },
+            ['#000000', '#ffffff', '#ff0000']);
+        eq(r.sprites[0].frames[0][0], ['#000000', '#ffffff', '#ff0000'], 'each to its nearest');
+    });
+
+    test('retheme keeps holes, sizes, names and origins', () => {
+        const P = SF.project;
+        const s = P.newSprite('dag', 3, 1);
+        s.origin = { x: 1, y: 0 };
+        s.frames = [[['#ff0000', null, '#00ff00']]];
+        const r = P.retheme({ palette: [], slots: null, template: null, sprites: [s] }, ['#123456']);
+        eq(r.sprites[0].frames[0][0], ['#123456', null, '#123456'], 'the hole is still a hole');
+        eq(r.sprites[0].name, 'dag', 'name');
+        eq(r.sprites[0].origin, { x: 1, y: 0 }, 'origin');
+    });
+
+    test('retheme moves the slots with the pixels', () => {
+        const P = SF.project;
+        const s = P.newSprite('dag', 1, 1);
+        s.frames = [[['#c00000']]];
+        const p = { palette: ['#c00000'], slots: { coat: '#c00000' }, template: 'humanoid', sprites: [s] };
+        const r = P.retheme(p, ['#000000', '#ff0000']);
+        eq(r.slots.coat, '#ff0000', 'the slot points at the colour its pixels became');
+        eq(r.template, 'humanoid', 'and the template is still named');
+    });
+
+    test('rethemed projects always fit the key, however many sprites', () => {
+        const P = SF.project;
+        // The old behaviour is what put projects over the ceiling: swap the
+        // palette, keep the pixels, and the colours only ever accumulate.
+        const p = spread(8, 32);
+        ok(P.colorsOf(p).length > P.ALPHABET.length, 'eight imports is over the key');
+        const theme = Array.from({ length: 16 }, (_, i) => '#0000' + i.toString(16).padStart(2, '0'));
+        const r = P.retheme(p, theme);
+        eq(P.colorsOf(r).length, 16, 'a rethemed project holds exactly the theme');
+        ok(P.stringify(r).length > 0, 'and saves');
+    });
+
+    test('retheme does not touch the project it was given', () => {
+        const P = SF.project;
+        const p = spread(3, 8);
+        const before = JSON.stringify(p);
+        P.retheme(p, ['#ffffff']);
+        eq(JSON.stringify(p), before, 'the original is unchanged');
+    });
+
+    test('retheme with no palette is a no-op rather than a wipe', () => {
+        const P = SF.project;
+        const p = spread(2, 4);
+        ok(P.retheme(p, []) === p, 'empty theme changes nothing');
+        ok(P.retheme(p, null) === p, 'and neither does none at all');
+    });
+
+    test('remap rewrites palette, slots and pixels together', () => {
+        const P = SF.project;
+        const s = P.newSprite('dag', 2, 1);
+        s.frames = [[['#ff0000', '#00ff00']]];
+        const p = { palette: ['#ff0000', '#00ff00'], slots: { coat: '#ff0000' }, template: null, sprites: [s] };
+        const r = P.remap(p, { '#ff0000': '#0000ff' });
+        eq(r.palette, ['#0000ff', '#00ff00'], 'palette');
+        eq(r.slots.coat, '#0000ff', 'slots');
+        eq(r.sprites[0].frames[0][0], ['#0000ff', '#00ff00'], 'pixels');
+    });
+
     test('multi-sprite projects share one palette and key', () => {
         const p = sample();
         p.sprites.push({

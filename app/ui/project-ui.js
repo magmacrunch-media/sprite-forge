@@ -104,6 +104,30 @@
     }
 
     /**
+     * Ask the user a yes/no question, however this build can.
+     *
+     * The Tauri dialog when there is one, the browser's own otherwise: the
+     * theme recolour runs in the web build too, where there is no fs at all,
+     * and a question nobody can answer would turn that into a feature that
+     * silently does nothing. False when neither exists, because every caller
+     * here is asking permission to change the art.
+     */
+    async function ask(question) {
+        const f = fs();
+        if (f && f.confirm) return !!await f.confirm(question);
+        if (typeof window.confirm === 'function') return !!window.confirm(question);
+        return false;
+    }
+
+    /** Put a sprite list back on the sprite it was showing, after a wholesale
+     *  replacement landed it on sprite 0. */
+    function restoreActive(project, name) {
+        if (!name || !spritesUI()) return;
+        const back = project.sprites.findIndex(sp => sp.name === name);
+        if (back > 0) spritesUI().select(back);
+    }
+
+    /**
      * Put a whole project into the editor and the sprite list.
      *
      * The editor takes the first sprite plus everything the project shares; the
@@ -135,24 +159,65 @@
      */
     async function offerReduce(project, colors) {
         const limit = P.ALPHABET.length;
-        const f = fs();
         const question = `This project uses ${colors} colours and the .forge key holds ${limit}. `
             + `Reduce it to ${limit} by merging the ${colors - limit} least-used into their `
             + `nearest neighbours, and save?`;
-        if (!f || !f.confirm || !await f.confirm(question)) return null;
+        if (!await ask(question)) return null;
 
         // Which sprite is being edited is not the save's business to change.
-        // adoptProject lands on sprite 0, which is right for Open and wrong
-        // here — pressing Save should not move you.
         const was = spritesUI() ? spritesUI().activeName() : null;
         const reduced = P.reduce(project, limit);
         adoptProject(reduced);
-        if (was) {
-            const back = reduced.sprites.findIndex(sp => sp.name === was);
-            if (back > 0) spritesUI().select(back);
-        }
+        restoreActive(reduced, was);
         toast(`reduced ${colors} colours to ${P.colorsOf(reduced).length}`);
         return reduced;
+    }
+
+    /**
+     * Redraw the whole project in `palette`, if the user wants that.
+     *
+     * A theme applies to the palette, and the palette is the project's rather
+     * than the sprite on screen's — one set of swatches across every sprite is
+     * the stated point of the format's shared key. So a recolour that stopped
+     * at the active sprite would leave the others drawn in colours no swatch
+     * points at any more, which is both wrong on its face and the way projects
+     * used to drift past what the key can hold.
+     *
+     * Which is also why it asks first. Undo lives in the editor and covers the
+     * sprite it is showing, so Ctrl+Z after this brings back that sprite and
+     * the old swatches while the rest stay recoloured. Rewriting art in sprites
+     * that are not on screen, irreversibly, is not something a dropdown should
+     * do to someone who has not been told.
+     *
+     * Declining is not a dead end: it means the swatches change and the art
+     * does not, which is exactly what applying a theme did before. The question
+     * says so, and the caller does that half.
+     *
+     * Returns whether it recoloured, so the caller knows whether the palette
+     * still needs swapping.
+     */
+    async function retheme(palette, label) {
+        if (!palette || !palette.length) return false;
+        const project = currentProject();
+
+        // Nothing drawn, or drawn entirely in colours the theme already has:
+        // there is nothing to ask about and nothing to move.
+        const moving = P.colorsOf(project).filter(c => !palette.includes(c));
+        if (!moving.length) return false;
+
+        const n = project.sprites.length;
+        const question = `Redraw ${n === 1 ? 'this sprite' : `all ${n} sprites`} in `
+            + `${label || 'this theme'}? ${moving.length} colour${moving.length === 1 ? '' : 's'} `
+            + `will move to the nearest one it has. Undo only covers the sprite on screen. `
+            + `Cancel to change the swatches and leave the art alone.`;
+        if (!await ask(question)) return false;
+
+        const was = spritesUI() ? spritesUI().activeName() : null;
+        const next = P.retheme(project, palette);
+        adoptProject(next);
+        restoreActive(next, was);
+        toast(`recoloured ${n} sprite${n === 1 ? '' : 's'}`);
+        return true;
     }
 
     // core/project.js throws two shapes: one sentence from serialize(), and a
@@ -267,6 +332,10 @@
         path: () => currentPath,
         currentProject,
         open: doOpen, save: doSave, saveAs: doSaveAs, newProject: doNew,
+        // The theme dropdown lives in the editor, but applying one is a whole-
+        // project operation, so it is answered here where the list and the
+        // dialogs are.
+        retheme,
         // Quit has to ask the same question Open and New ask.
         confirmDiscard,
     };
