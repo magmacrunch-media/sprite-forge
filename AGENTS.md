@@ -41,12 +41,13 @@ Load order matters and is fixed in `ui/index.html` — `color` → `draw` →
 `SpriteForge.color` at IIFE time, and `editor.js` binds every core export at
 its top.
 
-After `editor.js` come `sprites-ui.js`, `project-ui.js`, `targets-ui.js` and
-`menu.js`, in that order. sprites-ui seeds itself from the blank sprite the
+After `editor.js` come `sprites-ui.js`, `project-ui.js`, `targets-ui.js`,
+`help-ui.js` and `menu.js`, in that order. sprites-ui seeds itself from the blank sprite the
 editor has already built, so it must come after it; project-ui asks sprites-ui
 for the whole list when saving; targets-ui reads the current project from
-project-ui; menu.js dispatches to all of them and implements nothing itself, so
-it loads last.
+project-ui; help-ui.js owns the two HELP modals and depends on
+none of them; menu.js dispatches to all of them and implements nothing itself,
+so it loads last.
 
 Two calls run against that order, both because a colour change is the
 project's business and not one sprite's. Applying a theme asks project-ui.js,
@@ -106,7 +107,9 @@ app/ui/index.html                   the footer, which only the web build shows
 ```
 
 The footer is the one that rots, because the desktop build hides it — it sat at
-"v1.0" through everything up to 0.2.0. Check it.
+"v1.0" through everything up to 0.2.0. Check it. It is now also the only copy
+in that file: the Credits modal reads `#app-version` out of it rather than
+printing a sixth.
 
 ## Vendored colour themes
 

@@ -70,6 +70,13 @@
                         <button data-action="view:onion" data-toggles="onion-toggle">Onion Skin<i>N</i></button>
                     </div>
                 </div>
+                <div class="menu">
+                    <button class="menu-title" data-menu="help">HELP</button>
+                    <div class="menu-drop" role="menu">
+                        <button data-action="help:reference">Reference&hellip;<i>F1</i></button>
+                        <button data-action="help:credits">Credits&hellip;</button>
+                    </div>
+                </div>
             </nav>
             <!-- Desktop only, and empty until project-ui.js fills it: the open
                  file's name and dirty marker. CSS hides it in the browser,
@@ -304,8 +311,11 @@
         </aside>
     </div>
 
+    <!-- Web build only — the desktop build hides the footer and reaches Credits
+         through the HELP menu instead. The version string lives here and
+         nowhere else in this file; the Credits modal reads it back out. -->
     <footer>
-        <span class="footer-text">SPRITE//FORGE v0.2.0 &mdash; <span>MAGMACRUNCH MEDIA</span></span>
+        <button class="footer-text" id="credits-link">SPRITE//FORGE <span id="app-version">v0.2.0</span> &mdash; <span>MAGMACRUNCH MEDIA</span></button>
     </footer>
 
     <dialog id="template-modal">
@@ -369,6 +379,113 @@
         </div>
     </dialog>
 
+    <dialog id="reference-modal">
+        <div class="modal-header">
+            <h2>REFERENCE</h2>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="sub-label">tools</div>
+            <dl class="ref-grid">
+                <dt><kbd>B</kbd></dt><dd>Pencil</dd>
+                <dt><kbd>E</kbd></dt><dd>Erase &mdash; or right-click with any tool</dd>
+                <dt><kbd>G</kbd></dt><dd>Flood fill</dd>
+                <dt><kbd>L</kbd></dt><dd>Line</dd>
+                <dt><kbd>U</kbd></dt><dd>Rectangle</dd>
+                <dt><kbd>C</kbd></dt><dd>Ellipse</dd>
+                <dt><kbd>I</kbd></dt><dd>Pick a colour off the canvas &mdash; or alt-click</dd>
+                <dt><kbd>O</kbd></dt><dd>Set the origin</dd>
+            </dl>
+
+            <div class="sub-label">frames</div>
+            <dl class="ref-grid">
+                <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next frame</dd>
+                <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
+                <dt><kbd>&larr;&uarr;&darr;&rarr;</kbd></dt><dd>Nudge the drawing a pixel; it wraps at the edge</dd>
+                <dt><kbd>H</kbd> <kbd>V</kbd></dt><dd>Flip across the vertical / horizontal</dd>
+                <dt><kbd>R</kbd></dt><dd>Rotate 90&deg;, square frames only</dd>
+            </dl>
+
+            <div class="sub-label">view</div>
+            <dl class="ref-grid">
+                <dt><kbd>&minus;</kbd> <kbd>=</kbd></dt><dd>Zoom out / in</dd>
+                <dt><kbd>D</kbd></dt><dd>Pixel grid</dd>
+                <dt><kbd>M</kbd></dt><dd>Mirror across the vertical centre</dd>
+                <dt><kbd>N</kbd></dt><dd>Onion skin</dd>
+            </dl>
+
+            <div class="sub-label">project</div>
+            <dl class="ref-grid">
+                <dt><kbd>Ctrl</kbd><kbd>N</kbd></dt><dd>New</dd>
+                <dt><kbd>Ctrl</kbd><kbd>O</kbd></dt><dd>Open a .forge project</dd>
+                <dt><kbd>Ctrl</kbd><kbd>S</kbd></dt><dd>Save &mdash; add <kbd>Shift</kbd> for Save As</dd>
+                <dt><kbd>T</kbd></dt><dd>Character templates</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Z</kbd></dt><dd>Undo &mdash; add <kbd>Shift</kbd> to redo</dd>
+            </dl>
+
+            <div class="sub-label">the origin</div>
+            <p>The point the game positions a sprite by &mdash; the feet, for
+                someone walking. It is kept in the .forge file and handed to the
+                loader at run time. It is never written into a PNG, so every
+                engine reading a sheet has to be told it separately.</p>
+
+            <div class="sub-label">the two files</div>
+            <p>A <strong>.forge</strong> file is the whole project: every sprite,
+                the one shared palette, the origins and the frame rates. It is
+                JSON, and deliberately readable in a diff. A <strong>PNG
+                sheet</strong> is only pixels &mdash; a uniform grid of
+                frame-width by frame-height cells, counted left to right, then
+                top to bottom.</p>
+
+            <div class="sub-label">one palette</div>
+            <p>Every sprite in a project draws from the same swatches, so a
+                character's eight facings cannot drift onto eight slightly
+                different browns. REPLACE and a theme both follow that palette
+                across every sprite. The .forge key names at most 89 colours; go
+                over and saving offers to merge the least-used into their
+                nearest neighbours.</p>
+
+            <div class="modal-actions">
+                <button id="reference-close">CLOSE</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="credits-modal">
+        <div class="modal-header">
+            <h2>CREDITS</h2>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="credits-lede">SPRITE//FORGE <span id="credits-version"></span><br>
+                A pixel-art sprite and animation editor by
+                <strong>magmacrunch media</strong>.</p>
+
+            <div class="sub-label">licence</div>
+            <p>PolyForm Noncommercial 1.0.0. Copyright 2026 magmacrunch media,
+                magmacrunch.com. Free to use for anything that is not a
+                commercial purpose; the full text ships beside the app.</p>
+
+            <div class="sub-label">typefaces</div>
+            <p>Press Start 2P and Courier Prime, both self-hosted rather than
+                fetched, so the app looks the same offline.</p>
+
+            <div class="sub-label">colour themes</div>
+            <p>41 of the themes are vendored from MAGMA//OPS, where they dress
+                the ops dashboard rather than a sprite. Any theme you save is
+                yours and stays on this machine.</p>
+
+            <div class="sub-label">the sheet format</div>
+            <p>The uniform-grid PNG sheet is a shared contract, not this app's
+                to change: adenosine, magnolia, texastoast and the GameMaker
+                importer all read sprites the same way.</p>
+
+            <div class="modal-actions">
+                <button id="credits-close">CLOSE</button>
+            </div>
+        </div>
+    </dialog>
+
     <script src="../shell/toast.js"></script>
     <!-- core/ first: editor.js binds its exports at load. Order matters within
          core/ too — sheet.js reads SpriteForge.color at IIFE time. The ?v=
@@ -398,6 +515,7 @@
     <!-- after project-ui.js: exporting a target reads the current project -->
     <script src="targets-ui.js"></script>
     <!-- last: dispatches to both of the above -->
+    <script src="help-ui.js"></script>
     <script src="menu.js"></script>
 </body>
 </html>

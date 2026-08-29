@@ -20,6 +20,7 @@
 
     const P = () => window.SpriteForge.projectUI;
     const E = () => window.SpriteForge.editor;
+    const H = () => window.SpriteForge.helpUI;
     const fs = () => window.SpriteForge.fs;
 
     /** The toolbar button a View item stands for. */
@@ -48,6 +49,8 @@
         'view:grid': (btn) => proxied(btn).click(),
         'view:mirror': (btn) => proxied(btn).click(),
         'view:onion': (btn) => proxied(btn).click(),
+        'help:reference': () => H().reference(),
+        'help:credits': () => H().credits(),
     };
 
     // ── open / closed ───────────────────────────────────────
