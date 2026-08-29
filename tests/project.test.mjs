@@ -288,6 +288,68 @@ export default function (SF) {
         eq(P.colorsOf(r).length, 1, 'and the two colours became one');
     });
 
+    // ── paletteFor ──────────────────────────────────────────
+    //
+    // The editor has 32 swatch slots; a .forge can carry up to the key's 89,
+    // which the import script does at --colors 64. Cutting to the first 32 left
+    // the swatches describing the file's ordering rather than the art.
+
+    test('paletteFor leaves a palette that already fits alone', () => {
+        const P = SF.project;
+        const p = spread(2, 4);
+        p.palette = ['#ff0000', '#00ff00'];
+        eq(P.paletteFor(p, 32), ['#ff0000', '#00ff00'], 'unchanged');
+    });
+
+    test('paletteFor keeps the swatches the art uses, commonest first', () => {
+        const P = SF.project;
+        const s = P.newSprite('dag', 4, 1);
+        //                    rare        common x2                 unused
+        s.frames = [[['#0000ff', '#00ff00', '#00ff00', '#00ff00']]];
+        const p = { palette: ['#ff0000', '#0000ff', '#00ff00'], slots: null, template: null, sprites: [s] };
+        eq(P.paletteFor(p, 2), ['#00ff00', '#0000ff'], 'used ones win, commonest first');
+    });
+
+    test('paletteFor spends leftover slots on swatches nothing has used', () => {
+        const P = SF.project;
+        const s = P.newSprite('dag', 1, 1);
+        s.frames = [[['#00ff00']]];
+        const p = { palette: ['#ff0000', '#00ff00', '#123456'], slots: null, template: null, sprites: [s] };
+        eq(P.paletteFor(p, 2), ['#00ff00', '#ff0000'], 'the used one, then the first unused');
+    });
+
+    // Reordering only happens when something has to go. A palette that fits
+    // comes back exactly as it was, or opening a file would shuffle the
+    // swatches somebody arranged.
+    test('paletteFor does not reorder a palette that fits', () => {
+        const P = SF.project;
+        const s = P.newSprite('dag', 1, 1);
+        s.frames = [[['#123456']]];                 // the last swatch is the used one
+        const order = ['#ff0000', '#00ff00', '#123456'];
+        const p = { palette: order, slots: null, template: null, sprites: [s] };
+        eq(P.paletteFor(p, 3), order, 'exactly as given, used swatch left where it was');
+        eq(P.paletteFor(p, 99), order, 'and with room to spare');
+    });
+
+    test('paletteFor never returns more than the limit', () => {
+        const P = SF.project;
+        const p = spread(3, 32);
+        p.palette = P.colorsOf(p).slice(0, 64);
+        eq(P.paletteFor(p, 32).length, 32, 'exactly the cap');
+        eq(new Set(P.paletteFor(p, 32)).size, 32, 'and no duplicates');
+    });
+
+    test('paletteFor does not touch the pixels or the project', () => {
+        const P = SF.project;
+        const p = spread(2, 32);
+        p.palette = P.colorsOf(p);
+        const before = JSON.stringify(p);
+        const trimmed = P.paletteFor(p, 8);
+        eq(trimmed.length, 8, 'palette cut');
+        eq(JSON.stringify(p), before, 'the project is untouched');
+        eq(P.colorsOf(p).length, 64, 'every colour is still in the art');
+    });
+
     // ── retheme ─────────────────────────────────────────────
     //
     // Applying a theme used to swap the swatches and leave every pixel alone,

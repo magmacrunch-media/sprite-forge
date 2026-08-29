@@ -1330,6 +1330,11 @@ function redrawEverything() {
 
 window.SpriteForge = window.SpriteForge || {};
 window.SpriteForge.editor = {
+  // How many swatches the palette has room for. Published because project-ui
+  // has to trim a loaded palette to fit and should not keep its own copy of a
+  // number that lives here.
+  MAX_SWATCHES,
+
   /** The editor's contents as one project sprite. */
   getSprite(name) {
     return {

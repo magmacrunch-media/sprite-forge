@@ -66,6 +66,39 @@ window.SpriteForge.project = (function () {
     }
 
     /**
+     * The `limit` most useful swatches of a project's palette.
+     *
+     * The editor has a fixed number of palette slots and a .forge may carry
+     * more colours than that: the import script writes up to the key's width.
+     * Something has to be left out, and taking the first `limit` would leave
+     * the swatches describing the order the file happens to list them in
+     * rather than the art. The ones the pixels actually use come first,
+     * commonest first, so what is on screen is what you can reach for. Slots
+     * left over go to swatches nothing has used yet, in their own order —
+     * those are colours somebody mixed on purpose, and there is room.
+     *
+     * Only the palette is cut. The pixels keep every colour they had; the key
+     * holds far more than the palette does, and losing art to a display limit
+     * would be the wrong trade entirely.
+     */
+    function paletteFor(p, limit) {
+        const cap = Math.max(1, limit || ALPHABET.length);
+        if (p.palette.length <= cap) return [...p.palette];
+
+        const counts = new Map();
+        for (const s of p.sprites)
+            for (const f of s.frames)
+                for (const row of f)
+                    for (const px of row) if (px) counts.set(px, (counts.get(px) || 0) + 1);
+
+        // Stable sort, so swatches used equally often stay in palette order.
+        const used = p.palette.filter(h => counts.has(h))
+            .sort((a, b) => counts.get(b) - counts.get(a));
+        const unused = p.palette.filter(h => !counts.has(h));
+        return [...used, ...unused].slice(0, cap);
+    }
+
+    /**
      * The same project with every colour rewritten through `map`.
      *
      * Palette, slots and pixels together, because a colour that moves has to
@@ -310,5 +343,5 @@ window.SpriteForge.project = (function () {
         return deserialize(o);
     }
 
-    return { FORMAT, ALPHABET, TRANSPARENT, blank, newSprite, uniqueName, colorsOf, remap, retheme, reduce, serialize, deserialize, stringify, parse, validate };
+    return { FORMAT, ALPHABET, TRANSPARENT, blank, newSprite, uniqueName, colorsOf, paletteFor, remap, retheme, reduce, serialize, deserialize, stringify, parse, validate };
 })();

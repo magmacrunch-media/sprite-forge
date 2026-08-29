@@ -37,6 +37,7 @@ function mount(opts = {}) {
     sandbox.Toast = { show: (m) => toasts.push(m) };
 
     sandbox.SpriteForge.editor = {
+        MAX_SWATCHES: 32,
         revision: () => revision,
         getSprite: (name) => sprite(name, opts.colors || 2),
         getPalette: () => opts.palette || ['#000000', '#ffffff'],
@@ -56,6 +57,8 @@ function mount(opts = {}) {
     };
 
     sandbox.SpriteForge.fs = {
+        openProject: async () => opts.openPath || 'C:/games/proj.forge',
+        readText: async () => opts.fileText || '',
         saveProject: async () => opts.path || 'C:/games/proj.forge',
         writeText: async (path, text) => {
             if (opts.diskFails) throw new Error('os error 5: access is denied');
@@ -138,6 +141,48 @@ export default async function (SF) {
     const good = mount();
     good.touch();
     await good.ui.saveAs();
+
+    // A .forge carrying more swatches than the editor has slots for. The import
+    // script writes these at --colors 64; the palette used to be cut to
+    // whichever 32 the file listed first, silently.
+    const wide = (() => {
+        const P = SF.project;
+        const sprite = P.newSprite('dag', 8, 1);
+        // 40 swatches, of which the art uses only the last eight.
+        const swatches = Array.from({ length: 40 }, (_, i) => '#' + i.toString(16).padStart(6, '0'));
+        sprite.frames = [[swatches.slice(32)]];
+        return { palette: swatches, slots: null, template: null, sprites: [sprite] };
+    })();
+    const opened = mount({ sprites: wide.sprites, fileText: SF.project.stringify(wide) });
+    await opened.ui.open();
+
+    test('opening a file with more swatches than slots keeps the ones in use', () => {
+        eq(opened.adopted.length, 1, 'it opened');
+        const shown = opened.adopted[0].palette;
+        eq(shown.length, 32, 'trimmed to the slots the editor has');
+        for (const hex of wide.sprites[0].frames[0][0])
+            ok(shown.includes(hex), `${hex} is drawn, so it has a swatch`);
+    });
+
+    test('and says so, rather than leaving it to be noticed', () => {
+        const msg = opened.toasts.join(' | ');
+        ok(msg.includes('40'), `names how many the file holds: ${JSON.stringify(msg)}`);
+        ok(msg.includes('32'), 'and how many are shown');
+    });
+
+    test('opening costs unused swatches, never a drawn colour', () => {
+        // The trim is a display limit, not an edit. What it can drop is a
+        // swatch nothing has drawn with — there are only so many slots. Every
+        // pixel comes through untouched, which is the half that matters: the
+        // key holds 89, so the art was never the thing under pressure.
+        eq(opened.sprites()[0].frames, wide.sprites[0].frames, 'pixels identical');
+
+        const shown = opened.adopted[0].palette;
+        const dropped = wide.palette.filter(h => !shown.includes(h));
+        eq(dropped.length, 8, 'eight swatches did not fit');
+        const drawn = new Set(wide.sprites[0].frames.flat(2).filter(Boolean));
+        for (const hex of dropped) ok(!drawn.has(hex), `${hex} was never drawn with`);
+    });
 
     // ── over the ceiling, with nothing to ask through ───────
 

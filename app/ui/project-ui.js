@@ -137,7 +137,12 @@
      * doOpen.
      */
     function adoptProject(project) {
-        editor.setSprite(project.sprites[0], project.palette, project.slots, project.template);
+        // A file may carry more swatches than the editor has slots for, so the
+        // palette is trimmed to the ones the art actually uses rather than to
+        // whichever the file listed first. Only the swatches: every pixel keeps
+        // its colour, and the key holds far more than the palette shows.
+        const palette = P.paletteFor(project, editor.MAX_SWATCHES);
+        editor.setSprite(project.sprites[0], palette, project.slots, project.template);
         if (spritesUI()) spritesUI().load(project.sprites);
     }
 
@@ -290,6 +295,12 @@
             toast(project.sprites.length > 1
                 ? `opened ${project.sprites.length} sprites`
                 : `opened ${sprite.name}`);
+            // Said rather than left to be noticed: the swatches on screen are
+            // not all of the ones the file carries, and a REPLACE aimed at a
+            // colour that did not fit has nothing to aim with.
+            if (project.palette.length > editor.MAX_SWATCHES)
+                toast(`palette holds ${project.palette.length} colours; `
+                    + `showing the ${editor.MAX_SWATCHES} most used`);
         } catch (e) {
             // core/project.js names the sprite, frame and row it choked on, so
             // this is worth showing rather than swallowing.
