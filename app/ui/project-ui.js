@@ -103,6 +103,58 @@
         await writeTo(currentPath);
     }
 
+    /**
+     * Put a whole project into the editor and the sprite list.
+     *
+     * The editor takes the first sprite plus everything the project shares; the
+     * panel takes the whole list, sprite 0 included, and does not swap it back
+     * in on top of what was just loaded. Open does this, and so does a reduce,
+     * which is the only reason it is a function rather than four lines inside
+     * doOpen.
+     */
+    function adoptProject(project) {
+        editor.setSprite(project.sprites[0], project.palette, project.slots, project.template);
+        if (spritesUI()) spritesUI().load(project.sprites);
+    }
+
+    /**
+     * Offer to bring a project inside the key's colour limit, and do it if the
+     * user agrees.
+     *
+     * The limit is reachable without doing anything wrong: the palette is
+     * shared but the pixels are not bound to it, so importing a PNG into each
+     * of three sprites is ninety-six colours against a key that holds
+     * eighty-nine. Before this, that project simply could not be saved, and the
+     * only advice available was the count.
+     *
+     * Asking is not a formality. Reducing rewrites pixels in every sprite,
+     * including ones not on screen, so it is exactly the kind of thing that
+     * must not happen because somebody pressed Save. Without a confirm to ask
+     * through, the answer is no and the save fails with its reason — changing
+     * the art unasked would be worse than not saving.
+     */
+    async function offerReduce(project, colors) {
+        const limit = P.ALPHABET.length;
+        const f = fs();
+        const question = `This project uses ${colors} colours and the .forge key holds ${limit}. `
+            + `Reduce it to ${limit} by merging the ${colors - limit} least-used into their `
+            + `nearest neighbours, and save?`;
+        if (!f || !f.confirm || !await f.confirm(question)) return null;
+
+        // Which sprite is being edited is not the save's business to change.
+        // adoptProject lands on sprite 0, which is right for Open and wrong
+        // here — pressing Save should not move you.
+        const was = spritesUI() ? spritesUI().activeName() : null;
+        const reduced = P.reduce(project, limit);
+        adoptProject(reduced);
+        if (was) {
+            const back = reduced.sprites.findIndex(sp => sp.name === was);
+            if (back > 0) spritesUI().select(back);
+        }
+        toast(`reduced ${colors} colours to ${P.colorsOf(reduced).length}`);
+        return reduced;
+    }
+
     // core/project.js throws two shapes: one sentence from serialize(), and a
     // "cannot save this project:" header over one indented line per problem
     // from validate(). A toast is one line, so take the first problem and say
@@ -114,16 +166,31 @@
     }
 
     async function writeTo(path) {
-        // Encoding runs first and separately, because the two failures are
-        // not the same kind of news. A project that cannot be encoded — too
-        // many colours for the key, two sprites sharing a name — fails for a
-        // reason the user can go and fix, and naming it is the difference
-        // between a fixable project and a mysterious one. A disk that will
-        // not take the bytes is not theirs to fix, and the message would be
-        // the OS's rather than ours.
+        let project = currentProject();
+
+        // Asked before encoding rather than caught after it, because the answer
+        // is a question for the user and not an error to report. serialize()
+        // would throw on exactly this, and that throw stays as the backstop for
+        // a project that gets here another way.
+        const colors = P.colorsOf(project).length;
+        if (colors > P.ALPHABET.length) {
+            const reduced = await offerReduce(project, colors);
+            if (!reduced) {
+                toast(`${colors} colours; the .forge key holds ${P.ALPHABET.length}`);
+                return;
+            }
+            project = reduced;
+        }
+
+        // Encoding runs separately from writing, because the two failures are
+        // not the same kind of news. A project that cannot be encoded — two
+        // sprites sharing a name, say — fails for a reason the user can go and
+        // fix, and naming it is the difference between a fixable project and a
+        // mysterious one. A disk that will not take the bytes is not theirs to
+        // fix, and the message would be the OS's rather than ours.
         let text;
         try {
-            text = P.stringify(currentProject());
+            text = P.stringify(project);
         } catch (e) {
             toast(firstProblem(e.message));
             console.error('save failed:', e);
@@ -151,11 +218,7 @@
         try {
             const project = P.parse(await f.readText(path));
             const sprite = project.sprites[0];
-            // The editor takes the first sprite plus everything the project
-            // shares; the panel takes the whole list, sprite 0 included, and
-            // does not swap it back in on top of what was just loaded.
-            editor.setSprite(sprite, project.palette, project.slots, project.template);
-            if (spritesUI()) spritesUI().load(project.sprites);
+            adoptProject(project);
             currentPath = path;
             savedRevision = editor.revision();
             refresh();

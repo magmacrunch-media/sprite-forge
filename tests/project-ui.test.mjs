@@ -2,14 +2,14 @@ import { test, eq, ok } from './assert.mjs';
 import { coreSandbox, loadUI } from './harness.mjs';
 
 // The one ui/ file these tests reach into, and only for the part of it that is
-// logic rather than DOM: what Save tells the user when it cannot save.
+// logic rather than DOM: what Save does when the project will not fit.
 //
 // It earned the coverage. A PNG import used to be able to build a project with
 // more colours than the .forge key can name, and every attempt to save it said
-// "could not save" with the real sentence — which names the count and is the
-// only clue to what to do about it — going to console.error where nobody was
-// looking. Import no longer produces such a project (see sheet.test.mjs), but a
-// shared palette across many sprites still can, so the message has to be right.
+// "could not save" with the real sentence going to console.error where nobody
+// was looking. Import no longer produces such a project, but the ceiling is
+// still reachable — the palette is shared and the pixels are not bound to it —
+// so Save has to ask, and asking is a decision worth pinning down.
 //
 // What is stubbed is the shell: no document to speak of, no canvas, no editor.
 // project-ui.js reaches for a handful of named things and this supplies exactly
@@ -19,7 +19,10 @@ function mount(opts = {}) {
     const toasts = [];
     const written = [];
     const logged = [];
-    let revision = opts.revision || 1;
+    const adopted = [];
+    const selected = [];
+    let revision = 1;
+    let list = opts.sprites || null;
 
     // Captured rather than left to print: it keeps the run's output clean, and
     // the console is where the whole message goes when the toast can only hold
@@ -39,9 +42,18 @@ function mount(opts = {}) {
         getPalette: () => opts.palette || ['#000000', '#ffffff'],
         getSlots: () => null,
         getTemplate: () => null,
+        setSprite: (s, palette, slots, template) => {
+            revision++;
+            adopted.push({ sprite: s, palette, slots, template });
+        },
     };
-    if (opts.sprites)
-        sandbox.SpriteForge.spritesUI = { all: () => opts.sprites, load: () => {} };
+
+    if (list) sandbox.SpriteForge.spritesUI = {
+        all: () => list,
+        load: (next) => { list = next; },
+        activeName: () => opts.activeName || (list[0] && list[0].name),
+        select: (i) => selected.push(i),
+    };
 
     sandbox.SpriteForge.fs = {
         saveProject: async () => opts.path || 'C:/games/proj.forge',
@@ -50,37 +62,67 @@ function mount(opts = {}) {
             written.push({ path, text });
         },
     };
+    // Absent entirely unless the case supplies one, so the no-confirm-available
+    // branch is a real state and not just an untested `if`.
+    if (opts.confirm) sandbox.SpriteForge.fs.confirm = opts.confirm;
 
     loadUI(sandbox, 'project-ui.js');
     return {
+        P: sandbox.SpriteForge.project,
         ui: sandbox.SpriteForge.projectUI,
-        toasts, written, logged,
+        toasts, written, logged, adopted, selected,
+        sprites: () => list,
         touch: () => { revision++; },
     };
 }
 
 /** One sprite whose frame holds exactly `colors` distinct colours. */
-function sprite(name, colors) {
+function sprite(name, colors, band) {
     const w = 20, h = Math.ceil(colors / 20);
+    const tag = (band || 0).toString(16).padStart(2, '0');
     const frame = Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => {
         const i = y * w + x;
         if (i >= colors) return null;
-        return '#' + i.toString(16).padStart(2, '0') + '0000';
+        return '#' + tag + i.toString(16).padStart(4, '0');
     }));
     return { name, w, h, origin: { x: 0, y: 0 }, fps: 8, frames: [frame] };
 }
 
+/** n sprites of 32 colours each, none shared: the three-import project. */
+const spread = (n) => Array.from({ length: n }, (_, i) => sprite(`s${i}`, 32, i + 1));
+
+// The palette after those imports is the last one's 32 swatches, every one of
+// them already in that sprite's pixels — so the project carries 32 x n, which
+// is the number the user would be shown.
+const paletteAfter = (sprites) => sprites[sprites.length - 1].frames[0][0].filter(Boolean);
+
+const no = async () => false;
+
 export default async function (SF) {
     // Each case runs its save first and the assertions after, because assert.mjs
     // is synchronous and these actions are not.
+
     // The palette is one colour the pixels already use, so 200 means 200.
     const tooMany = mount({ colors: 200, palette: ['#000000'] });
     tooMany.touch();
     await tooMany.ui.saveAs();
 
-    const dupes = mount({
-        sprites: ['dag', 'dag', 'carl', 'carl'].map(n => sprite(n, 2)),
+    const three = spread(3);
+    const declined = mount({ sprites: spread(3), palette: paletteAfter(three), confirm: no });
+    declined.touch();
+    await declined.ui.saveAs();
+
+    let asked = null;
+    const accepted = mount({
+        sprites: spread(3),
+        palette: paletteAfter(three),
+        activeName: 's2',
+        confirm: async (q) => { asked = q; return true; },
     });
+    accepted.touch();
+    await accepted.ui.saveAs();
+
+    const dupes = mount({ sprites: ['dag', 'dag', 'carl', 'carl'].map(n => sprite(n, 2)) });
     await dupes.ui.saveAs();
 
     const oneDupe = mount({ sprites: ['dag', 'dag'].map(n => sprite(n, 2)) });
@@ -94,7 +136,9 @@ export default async function (SF) {
     good.touch();
     await good.ui.saveAs();
 
-    test('a project with more colours than the key says so, and says how many', () => {
+    // ── over the ceiling, with nothing to ask through ───────
+
+    test('with no way to ask, an over-limit save fails and says the numbers', () => {
         eq(tooMany.toasts.length, 1, 'one toast');
         const msg = tooMany.toasts[0];
         ok(msg.includes('200'), `names the colour count: ${JSON.stringify(msg)}`);
@@ -102,15 +146,57 @@ export default async function (SF) {
         ok(!/COULD NOT SAVE/.test(msg), 'and is not the old bare message');
     });
 
-    test('the console still gets the whole error, toast or no toast', () => {
-        eq(tooMany.logged.length, 1, 'one console line');
-        ok(tooMany.logged[0].includes('200 colours'), 'in its original case and wording');
-    });
-
-    test('a project that cannot be encoded is not reported as saved', () => {
+    test('and it does not reduce anything behind the user\'s back', () => {
+        eq(tooMany.adopted, [], 'nothing was pushed into the editor');
         eq(tooMany.written, [], 'nothing reached the disk');
         ok(tooMany.ui.isDirty(), 'still dirty, so the marker keeps telling the truth');
     });
+
+    // ── over the ceiling, and asked ─────────────────────────
+
+    test('three 32-colour sprites are over the key, and Save asks', () => {
+        eq(SF.project.colorsOf({ palette: paletteAfter(three), sprites: three }).length, 96, '96 colours');
+        ok(asked.includes('96'), `the question names the count: ${JSON.stringify(asked)}`);
+        ok(asked.includes('89'), 'and the limit');
+        ok(asked.includes('7'), 'and how many colours would be merged');
+    });
+
+    test('declining leaves the project exactly as it was', () => {
+        eq(declined.adopted, [], 'no reduction');
+        eq(declined.written, [], 'no save');
+        ok(declined.ui.isDirty(), 'still dirty');
+        const msg = declined.toasts[declined.toasts.length - 1];
+        ok(msg.includes('96') && msg.includes('89'), `says why: ${JSON.stringify(msg)}`);
+    });
+
+    test('accepting reduces, saves, and the file holds every sprite', () => {
+        eq(accepted.written.length, 1, 'one write');
+        const back = SF.project.parse(accepted.written[0].text);
+        eq(back.sprites.length, 3, 'all three sprites');
+        ok(SF.project.colorsOf(back).length <= SF.project.ALPHABET.length, 'inside the key');
+        ok(!accepted.ui.isDirty(), 'and clean afterwards');
+    });
+
+    test('the reduction reaches the editor and the list, not just the file', () => {
+        eq(accepted.adopted.length, 1, 'the editor was given the reduced project');
+        const live = { palette: accepted.adopted[0].palette, sprites: accepted.sprites() };
+        eq(SF.project.colorsOf(live).length, SF.project.ALPHABET.length, 'the list is reduced too');
+        // Saving the file while the editor kept the old 96 would make the dirty
+        // marker lie: it would read clean against a file it no longer matches.
+        eq(SF.project.stringify(live), accepted.written[0].text, 'they are the same project');
+    });
+
+    test('a reduce does not move you to another sprite', () => {
+        eq(accepted.selected, [2], 's2 was active, and s2 is active after');
+    });
+
+    test('the reduction is reported, not silent', () => {
+        const msg = accepted.toasts.join(' | ');
+        ok(msg.includes('REDUCED 96'), `says what it did: ${JSON.stringify(msg)}`);
+        ok(msg.includes('SAVED'), 'and that it saved');
+    });
+
+    // ── everything else Save can fail on ────────────────────
 
     test('a validate failure surfaces the first problem, not the header', () => {
         eq(oneDupe.toasts.length, 1, 'one toast');
@@ -118,6 +204,11 @@ export default async function (SF) {
         ok(msg.includes('DAG'), `names the sprite: ${JSON.stringify(msg)}`);
         ok(!msg.includes('CANNOT SAVE THIS PROJECT'), 'the header alone would say nothing');
         ok(!msg.includes('\n'), 'one line, because a toast is one line');
+    });
+
+    test('the console still gets the whole error, toast or no toast', () => {
+        eq(oneDupe.logged.length, 1, 'one console line');
+        ok(oneDupe.logged[0].includes('names become filenames'), 'in full, and in its own case');
     });
 
     test('more problems than fit are counted rather than dropped', () => {
@@ -138,5 +229,9 @@ export default async function (SF) {
         ok(!good.ui.isDirty(), 'clean afterwards');
         // The bytes are a real .forge, not just something that did not throw.
         eq(SF.project.parse(good.written[0].text).sprites.length, 1, 'reads back');
+    });
+
+    test('a project inside the limit is never asked about', () => {
+        eq(good.adopted, [], 'no reduction offered or applied');
     });
 }

@@ -37,8 +37,9 @@ the same `core/` serves the desktop build, the web demo, and the export
 targets, none of which share a DOM.
 
 Load order matters and is fixed in `ui/index.html` — `color` → `draw` →
-`sheet` → `templates` → `editor`. `sheet.js` reads `SpriteForge.color` at IIFE
-time, and `editor.js` binds every core export at its top.
+`sheet` → `templates` → `editor`. `sheet.js` and `project.js` both read
+`SpriteForge.color` at IIFE time, and `editor.js` binds every core export at
+its top.
 
 After `editor.js` come `sprites-ui.js`, `project-ui.js`, `targets-ui.js` and
 `menu.js`, in that order. sprites-ui seeds itself from the blank sprite the
