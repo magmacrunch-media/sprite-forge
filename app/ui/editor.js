@@ -23,6 +23,15 @@ const { shadeHex } = window.SpriteForge.color;
 const { bresenham, shapePixels } = window.SpriteForge.draw;
 const { framesToSheet, sheetToFrames } = window.SpriteForge.sheet;
 
+// The two ui/ modules that load after this one, read at call time and never
+// captured: they do not exist yet while this file is being evaluated. Both are
+// the project rather than the sprite — sprites-ui holds every sprite that is
+// not on the canvas, project-ui owns the dialogs — and a recolour or a theme is
+// a project's business. Absent in a build without them, and every caller here
+// falls back to doing its own half alone.
+const spritesUI = () => window.SpriteForge.spritesUI;
+const projectUI = () => window.SpriteForge.projectUI;
+
 // The two that lost their globals. core/ takes the grid and its size as
 // arguments; these re-supply the editor's current ones so the call sites read
 // exactly as before.
@@ -150,6 +159,17 @@ function pushUndo(state) {
 
 function snapshot() { pushUndo(currentState()); }
 
+// A recolour reaches every sprite, so its undo entry has to carry every sprite.
+// Only these entries do: a stroke changes one sprite and snapshotting the rest
+// on every mousedown would put the whole project on the stack a hundred times
+// over. The cost is paid by the operations that earn it.
+function snapshotProject() {
+  const s = currentState();
+  const su = spritesUI();
+  if (su) s.sprites = su.capture();
+  pushUndo(s);
+}
+
 // Strokes snapshot once on mousedown and commit only if a pixel changed,
 // so Ctrl+Z undoes the whole stroke and no-op clicks don't pollute the stack.
 function beginStroke() { pendingSnap = currentState(); }
@@ -160,17 +180,27 @@ function restore(s) {
   frameW = s.frameW; frameH = s.frameH;
   palette = s.palette; selectedSwatch = s.selectedSwatch; selectedColor = s.selectedColor;
   activeTemplate = s.activeTemplate;
+  if (s.sprites && spritesUI()) spritesUI().restoreAll(s.sprites);
   wInput.value = frameW; hInput.value = frameH;
   frameCache = [];
   syncOriginInputs(); sizeCanvas(); render(); renderSheet(); updateFrameLabel();
   renderPalette(); updatePaletteActive(); renderSlots();
 }
 
+// The state being left has to carry the sprite list whenever the state being
+// entered does, or undoing a recolour would strand redo with no way back to it.
+function leaving(s) {
+  const now = currentState();
+  const su = spritesUI();
+  if (s.sprites && su) now.sprites = su.capture();
+  return now;
+}
+
 function undo() {
   if (!undoStack.length) return;
   changes++;
   const s = undoStack.pop();
-  redoStack.push(currentState());
+  redoStack.push(leaving(s));
   restore(s);
 }
 
@@ -178,7 +208,7 @@ function redo() {
   if (!redoStack.length) return;
   changes++;
   const s = redoStack.pop();
-  undoStack.push(currentState());
+  undoStack.push(leaving(s));
   restore(s);
 }
 
@@ -489,16 +519,20 @@ function renderPalette() {
     const ci = document.createElement('input');
     ci.type = 'color'; ci.value = palette[i];
     ci.addEventListener('input', (e) => {
-      e.stopPropagation(); palette[idx] = e.target.value;
+      palette[idx] = e.target.value;
       div.style.backgroundColor = e.target.value;
       if (idx === selectedSwatch) { selectedColor = e.target.value; updateColorChip(); }
     });
-    ci.addEventListener('click', (e) => e.stopPropagation());
+    // Click chooses the colour to draw with; double-click opens the picker to
+    // change what the swatch is. They were the same gesture and the picker won
+    // every time, so the palette could be edited but not used.
+    div.title = 'Click to draw with this colour — double-click to change it';
     div.addEventListener('click', () => {
       selectedSwatch = idx; selectedColor = palette[idx];
       if (!['pencil', 'fill', 'line', 'rect', 'ellipse'].includes(tool)) { tool = 'pencil'; updateToolActive(); }
       updatePaletteActive(); updateColorChip();
     });
+    div.addEventListener('dblclick', () => ci.click());
     div.style.backgroundColor = palette[i];
     div.appendChild(ci); paletteEl.appendChild(div);
   }
@@ -534,24 +568,41 @@ document.getElementById('ramp-btn').addEventListener('click', () => {
 
 // ── Recolour ────────────────────────────────────────────
 
-// Rewrites a set of colours across every frame and the palette in one pass and
-// one undo step, so a slot recolour that touches several shades is still a
-// single Ctrl+Z. Returns whether anything actually changed.
+// Rewrites a set of colours across the whole project and the palette in one
+// pass and one undo step, so a slot recolour that touches several shades is
+// still a single Ctrl+Z. Returns whether anything actually changed.
+//
+// Every sprite, not just the one on screen. The palette is the project's — one
+// set of swatches across every sprite is the point of the format's shared key —
+// so a REPLACE that stopped at the live sprite would leave the others drawn in
+// a colour the palette no longer has, and the project carrying both.
+//
+// It does not ask, the way applying a theme does, because this is a tool aimed
+// at one colour and used over and over while drawing, and a dialog every time
+// would be unusable. It does not need to: the undo entry carries the other
+// sprites, so Ctrl+Z takes all of it back.
 function applyColorMap(map) {
   const pairs = Object.entries(map).filter(([from, to]) => from !== to);
   if (!pairs.length) return false;
   const lookup = Object.fromEntries(pairs);
+  const su = spritesUI();
 
   const hits = frames.some(f => f.some(row => row.some(px => px && lookup[px])));
   const inPalette = palette.some(c => lookup[c]);
-  if (!hits && !inPalette) return false;
+  // Asked as well, because the colour may live only in a sprite that is not on
+  // screen: picking it off this canvas is not the one way to select it.
+  const elsewhere = !!su && su.usesAny(lookup);
+  if (!hits && !inPalette && !elsewhere) return false;
 
-  snapshot();
+  snapshotProject();
   frames = frames.map(f => f.map(row => row.map(px => (px && lookup[px]) || px)));
   palette = palette.map(c => lookup[c] || c);
   selectedColor = lookup[selectedColor] || selectedColor;
   frameCache = [];
+  const others = su ? su.remapAll(lookup) : 0;
   render(); renderSheet(); renderPalette(); updatePaletteActive(); updateColorChip();
+  // Said only when it reached past the canvas, where the change is not visible.
+  if (others) Toast.show(`REPLACED IN ${others + 1} SPRITES`);
   return true;
 }
 
@@ -970,7 +1021,14 @@ document.getElementById('import-confirm').addEventListener('click', () => {
     origin.x = Math.min(origin.x, w); origin.y = Math.min(origin.y, h);
     const truncated = sliced.truncated
       ? ` (image not evenly divisible by ${w}×${h} — trailing pixels dropped)` : '';
-    exportOutput.value = `// imported ${frames.length} frame${frames.length === 1 ? '' : 's'} of ${w}×${h} from ${file.name}${truncated}`;
+    // sheet.js snaps the colours it could not keep onto the nearest one it
+    // did, so this is a change to the pixels the user is now looking at and
+    // has to be said out loud rather than left in the export header. A
+    // full-colour photograph loses hundreds of colours here.
+    const snapped = sliced.colors > sliced.palette.length
+      ? ` (${sliced.colors} colours reduced to ${sliced.palette.length})` : '';
+    if (snapped) Toast.show(`${sliced.colors} COLOURS SNAPPED TO ${sliced.palette.length}`);
+    exportOutput.value = `// imported ${frames.length} frame${frames.length === 1 ? '' : 's'} of ${w}×${h} from ${file.name}${snapped}${truncated}`;
     syncOriginInputs(); sizeCanvas(); render(); renderSheet(); updateFrameLabel();
     importModal.close();
   };
@@ -1077,7 +1135,7 @@ function syncThemeButtons() {
   if (themeDelete) themeDelete.disabled = !(t && t.custom);
 }
 
-function applyTheme(id) {
+async function applyTheme(id) {
   const t = PAL.find(id, myThemes());
   if (!t) return;
   const colors = PAL.normalize(t.colors, MAX_SWATCHES);
@@ -1085,11 +1143,24 @@ function applyTheme(id) {
   // undefined, and drawing would then write undefined into the frames and on
   // into the .forge file.
   if (!colors.length) { Toast.show('THAT THEME HAS NO USABLE COLOURS'); return; }
-  snapshot();
-  palette = colors;
-  selectedSwatch = 0;
-  selectedColor = palette[0];
-  renderPalette(); updatePaletteActive(); updateColorChip();
+
+  // A theme is the project's, not this sprite's, so recolouring is answered
+  // over in project-ui.js where the sprite list and the dialogs are. It comes
+  // back false when it did not recolour — declined, nothing drawn, or no
+  // project layer at all — and then this does what applying a theme has
+  // always done and swaps the swatches on their own. When it did recolour it
+  // has already put the new palette in through setSprite, and doing it again
+  // here would cost a second undo step for nothing.
+  const ui = projectUI();
+  const recoloured = ui && ui.retheme ? await ui.retheme(colors, t.name) : false;
+  if (!recoloured) {
+    snapshot();
+    palette = colors;
+    selectedSwatch = 0;
+    selectedColor = palette[0];
+    renderPalette(); updatePaletteActive(); updateColorChip();
+  }
+
   // Only one vendored theme is bigger than the palette, but saying so beats
   // handing over the first thirty-two of forty-nine without a word.
   Toast.show(PAL.truncates(t, MAX_SWATCHES)

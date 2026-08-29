@@ -15,6 +15,12 @@
    Not sent to the website by scripts/sync-web.mjs: the synced page sits at
    ware/sprite-forge/ and loads ware/shell/fonts.css, the original, whose
    two-level path is correct there.
+
+   Both faces are under the SIL Open Font License 1.1, and clause 2 requires
+   the licence to travel with them. It does: fonts/PressStart2P-OFL.txt and
+   fonts/CourierPrime-OFL.txt sit beside the files, inside app/, which Tauri
+   embeds whole — so they are in the installed binary and not only the repo.
+   Re-vendoring a face means re-vendoring its licence.
    ═══════════════════════════════════════════════ */
 
 @font-face {

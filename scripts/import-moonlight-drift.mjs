@@ -180,7 +180,7 @@ function readOrigins(path) {
 // ── pixels ──────────────────────────────────────────────
 
 /** One PNG file -> one frame, sliced by core/sheet.js's own rules. */
-function readFrame(SF, path, colors, alpha) {
+function readFrame(SF, path, alpha) {
     const img = decodePng(readFileSync(path));
 
     if (img.width > MAX_SIZE || img.height > MAX_SIZE)
@@ -204,7 +204,13 @@ function readFrame(SF, path, colors, alpha) {
 
     // One file is one frame, so the frame size is the image size. maxFrames 1
     // says so; a sheet would slice into more.
-    const sliced = SF.sheet.sheetToFrames(ctx, img.width, img.height, img.width, img.height, 1, colors);
+    //
+    // No swatch cap here, deliberately. sheetToFrames reduces the pixels to fit
+    // one, and this script wants the reduction done once, by quantize(), across
+    // a character's idle and thrust frames together — they share a palette and
+    // reducing each on its own first is both lossier and a lie in the report,
+    // which counts the colours the file actually had.
+    const sliced = SF.sheet.sheetToFrames(ctx, img.width, img.height, img.width, img.height, 1, 0);
     if (!sliced || !sliced.frames.length) throw new Error(`${basename(path)}: sliced to no frames`);
 
     return { frame: sliced.frames[0], w: img.width, h: img.height, drawn, dropped };
@@ -337,8 +343,8 @@ try {
 
     for (const key of keys) {
         const pair = sprites.get(key);
-        const idle = readFrame(SF, pair.idle, opts.colors, opts.alpha);
-        const thrust = readFrame(SF, pair.thrust, opts.colors, opts.alpha);
+        const idle = readFrame(SF, pair.idle, opts.alpha);
+        const thrust = readFrame(SF, pair.thrust, opts.alpha);
 
         // One origin covers both states (game_render.c draws whichever is active at
         // the same point), so the two frames have to be the same size for it to

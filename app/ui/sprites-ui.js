@@ -92,6 +92,72 @@
         render();
     }
 
+    // ── recolouring the sprites you are not looking at ──────
+    //
+    // The palette is the project's, so a recolour is too: REPLACE and a slot
+    // change rewrite one set of colours everywhere, not just on the sprite
+    // that happens to be on screen. The editor rewrites its own live frames
+    // and calls these for the rest.
+
+    /**
+     * Whether any stored sprite uses one of `map`'s colours.
+     *
+     * Asked before anything is written, because the editor has to know whether
+     * there is a change to make before it takes an undo snapshot: a REPLACE
+     * that hits nothing should not cost a Ctrl+Z. The live sprite is excluded
+     * because the editor has already checked its own frames.
+     */
+    function usesAny(map) {
+        return sprites.some((s, i) => i !== active
+            && s.frames.some(f => f.some(row => row.some(px => px && map[px]))));
+    }
+
+    /**
+     * Rewrite `map`'s colours across every stored sprite. Returns how many
+     * changed, so the caller can say what it did.
+     *
+     * Skips the live one: the editor maps its own frames in the same pass, and
+     * the copy held here is the stale one that sync() overwrites anyway.
+     */
+    function remapAll(map) {
+        let n = 0;
+        sprites = sprites.map((s, i) => {
+            if (i === active) return s;
+            let touched = false;
+            const frames = s.frames.map(f => f.map(row => row.map(px => {
+                const to = px && map[px];
+                if (!to) return px;
+                touched = true;
+                return to;
+            })));
+            if (!touched) return s;
+            n++;
+            return { ...s, frames };
+        });
+        return n;
+    }
+
+    /**
+     * The list as it stands, for an undo entry.
+     *
+     * Deliberately does not sync() first. This is taken the moment before the
+     * editor changes itself, and pulling its live state in would capture the
+     * change that is about to happen. sprites[active] staying stale is the
+     * standing invariant here, not a bug to fix on the way past.
+     */
+    function capture() { return sprites.map(clone); }
+
+    /**
+     * Put a captured list back. Which sprite is active does not change: this
+     * serves undo, not opening a file, and the sprite you were drawing on is
+     * still the one you are drawing on.
+     */
+    function restoreAll(list) {
+        sprites = list.map(clone);
+        active = Math.min(active, sprites.length - 1);
+        render();
+    }
+
     // ── add, duplicate, delete, rename ──────────────────────
 
     function add() {
@@ -148,6 +214,7 @@
 
     window.SpriteForge.spritesUI = {
         all, load, render,
+        usesAny, remapAll, capture, restoreAll,
         count: () => sprites.length,
         activeName: () => (sprites[active] ? sprites[active].name : null),
         // For tests: drive the same paths the buttons do.

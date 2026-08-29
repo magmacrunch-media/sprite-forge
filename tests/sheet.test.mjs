@@ -1,4 +1,4 @@
-import { test, eq } from './assert.mjs';
+import { test, eq, ok } from './assert.mjs';
 
 // These pin the shared sheet contract: uniform grid, left-to-right then
 // top-to-bottom, origin never in the PNG. adenosine (TS), magnolia (C/Wii),
@@ -93,6 +93,85 @@ export default function (SF) {
         const c = framesToSheet(frames(6, 4, 4), 4, 4);
         eq(sheetToFrames(c.getContext('2d'), c.width, c.height, 4, 4, 3, 32).frames.length, 3, 'frame cap');
         eq(sheetToFrames(c.getContext('2d'), c.width, c.height, 4, 4, 64, 2).palette.length, 2, 'swatch cap');
+    });
+
+    // The swatch cap used to truncate the palette and leave the pixels alone,
+    // which produced a project the editor would import happily and then refuse
+    // to save: project.js builds the .forge key from the pixels as well as the
+    // palette, so all 471 colours of a photograph were still in there. Every
+    // pixel coming out of here has to be a palette entry.
+    test('the swatch cap reduces the pixels too, not just the palette', () => {
+        // Six solid frames, six colours, cap of two.
+        const c = framesToSheet(frames(6, 4, 4), 4, 4);
+        const back = sheetToFrames(c.getContext('2d'), c.width, c.height, 4, 4, 64, 2);
+        eq(back.colors, 6, 'six distinct colours were in the image');
+        eq(back.palette.length, 2, 'two survived');
+        const used = new Set(back.frames.flat(2).filter(Boolean));
+        eq([...used].sort(), [...back.palette].sort(), 'the pixels use only those two');
+    });
+
+    test('a dropped colour lands on the nearest kept one', () => {
+        // Two near-blacks and a near-white, one pixel each. The palette keeps
+        // the first two seen (the counts tie, and the sort is stable), so
+        // #fefefe has to snap to #ffffff rather than to #000000.
+        const f = [['#000000', '#ffffff'], ['#fefefe', '#000000']];
+        const c = framesToSheet([f], 2, 2);
+        const back = sheetToFrames(c.getContext('2d'), 2, 2, 2, 2, 64, 2);
+        eq(back.palette, ['#000000', '#ffffff'], 'the two commonest');
+        eq(back.frames[0], [['#000000', '#ffffff'], ['#ffffff', '#000000']], 'near-white snapped to white');
+    });
+
+    test('transparency survives the reduction', () => {
+        const f = [['#ff0000', null], [null, '#00ff00']];
+        const c = framesToSheet([f], 2, 2);
+        const back = sheetToFrames(c.getContext('2d'), 2, 2, 2, 2, 64, 1);
+        eq(back.frames[0][0][1], null, 'still a hole');
+        eq(back.frames[0][1][0], null, 'still a hole');
+        eq(back.frames[0][1][1], back.palette[0], 'the dropped colour moved, the holes did not');
+    });
+
+    test('under the cap the pixels are left alone', () => {
+        const src = frames(3, 4, 4);
+        const c = framesToSheet(src, 4, 4);
+        const back = sheetToFrames(c.getContext('2d'), c.width, c.height, 4, 4, 64, 32);
+        eq(back.frames, src, 'pixels untouched');
+        eq(back.colors, 3, 'colours counted anyway');
+        eq(back.colors, back.palette.length, 'nothing was dropped');
+    });
+
+    test('no cap means no reduction, however many colours', () => {
+        // 64 distinct greys in one 8x8 frame.
+        const f = Array.from({ length: 8 }, (_, y) => Array.from({ length: 8 }, (_, x) => {
+            const v = (y * 8 + x).toString(16).padStart(2, '0');
+            return `#${v}${v}${v}`;
+        }));
+        const c = framesToSheet([f], 8, 8);
+        const back = sheetToFrames(c.getContext('2d'), 8, 8, 8, 8, 64, 0);
+        eq(back.colors, 64, 'all 64 counted');
+        eq(back.palette.length, 64, 'all 64 kept');
+        eq(back.frames[0], f, 'pixels untouched');
+    });
+
+    // The whole point of the reduction: what comes out of an import is a
+    // project core/project.js can encode. 128 colours is past both the swatch
+    // cap and the 89-character .forge key.
+    test('a many-coloured image reduces to something project.js can save', () => {
+        const f = Array.from({ length: 16 }, (_, y) => Array.from({ length: 8 }, (_, x) => {
+            const v = (y * 8 + x).toString(16).padStart(2, '0');
+            return `#${v}00${v}`;
+        }));
+        const c = framesToSheet([f], 8, 16);
+        const back = sheetToFrames(c.getContext('2d'), 8, 16, 8, 16, 64, 32);
+        eq(back.colors, 128, 'the image really did hold 128 colours');
+        eq(back.palette.length, 32, 'cut to the swatch cap');
+
+        const P = SF.project;
+        const s = P.newSprite('imported', 8, 16);
+        s.frames = back.frames;
+        const text = P.stringify({ palette: back.palette, slots: null, template: null, sprites: [s] });
+        ok(text.length > 0, 'it saves');
+        eq(Object.keys(JSON.parse(text).key).length, 32, 'the key holds exactly the palette');
+        eq(P.parse(text).sprites[0].frames, back.frames, 'and reads back pixel for pixel');
     });
 
     test('non-square frames keep their aspect through a round trip', () => {

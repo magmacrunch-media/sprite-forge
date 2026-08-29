@@ -345,13 +345,20 @@ kbd {
 .swatch:hover { border-color: var(--dim); }
 .swatch.active { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan); }
 
+/* The picker for a swatch, invisible and lying over it.
+   It must not be the click target. Covering the whole swatch meant every
+   click landed here and opened the OS colour picker, so a swatch could be
+   edited and never actually chosen — selecting a colour to draw with was
+   impossible. It stays in the layout rather than display:none because
+   opening the picker means click()ing this element, and a display:none
+   input cannot be clicked. */
 .swatch input[type="color"] {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     opacity: 0;
-    cursor: pointer;
+    pointer-events: none;
 }
 
 .color-chip-row {
@@ -425,7 +432,10 @@ input[type="number"]:focus { outline: none; border-color: var(--cyan); }
     margin-top: 6px;
 }
 
-.hint code {
+/* Modal prose gets the same inline-code treatment the sidebar hints do —
+   a path named in a sentence should look like a path in both places. */
+.hint code,
+.modal-body code {
     color: var(--cyan);
     background: var(--bg);
     border: 1px solid var(--border);
@@ -486,6 +496,39 @@ dialog {
 }
 
 dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
+
+/* ── Reference and Credits ────────────────────────────────
+   A keys-and-meaning list. The key column sizes to its widest row rather than
+   a guess, so Ctrl+Shift+S does not wrap while B leaves a gap. */
+.ref-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 12px;
+    margin: 0 0 14px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.ref-grid dt { white-space: nowrap; }
+.ref-grid dd { margin: 0; color: var(--dim); }
+.ref-grid kbd + kbd { margin-left: 2px; }
+
+.credits-lede { color: var(--text) !important; line-height: 1.6; }
+.credits-lede strong { color: var(--cyan); font-weight: 400; }
+
+/* The web build's footer line is the way in to Credits there, the menu bar
+   being desktop-only. It has to keep looking like the text it replaced. */
+button.footer-text {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+button.footer-text:hover { color: var(--cyan); background: none; }
 
 .modal-header {
     display: flex;

@@ -80,7 +80,19 @@ function fakeDocument() {
     };
 }
 
-export function loadCore() {
+export function loadCore() { return coreSandbox().SpriteForge; }
+
+/**
+ * The same load, handing back the whole fake window rather than just
+ * SpriteForge.
+ *
+ * ui/ is out of scope for these tests as a rule — it is the DOM and the
+ * mutable editor state, and stubbing that is a browser's job. The exception is
+ * a ui/ file whose whole job is deciding what to tell the user when core/
+ * refuses something: that decision is logic, it has been wrong before, and it
+ * is reachable with a handful of stubs. See project-ui.test.mjs.
+ */
+export function coreSandbox() {
     const sandbox = { console, ImageData, document: fakeDocument() };
     sandbox.window = sandbox;
     sandbox.globalThis = sandbox;
@@ -89,5 +101,11 @@ export function loadCore() {
         const src = readFileSync(join(ROOT, 'core', f), 'utf8');
         vm.runInContext(src, sandbox, { filename: `core/${f}` });
     }
-    return sandbox.SpriteForge;
+    return sandbox;
+}
+
+/** Evaluate a ui/ file into a sandbox from coreSandbox(). */
+export function loadUI(sandbox, file) {
+    vm.runInContext(readFileSync(join(ROOT, 'ui', file), 'utf8'), sandbox,
+        { filename: `ui/${file}` });
 }

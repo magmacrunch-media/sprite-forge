@@ -21,9 +21,9 @@ app/            everything the shipped app loads, and nothing else
   core/         pure logic — no DOM, no Tauri, no filesystem
   ui/           the DOM layer: canvas, widgets, mutable editor state
   shell/        vendored from magmacrunch.com's ware/shell (see below)
-  fonts/        self-hosted faces the shell asks for
+  fonts/        self-hosted faces the shell asks for, and their OFL licences
 desktop/        the Tauri shell
-tests/          node tests for core/
+tests/          node tests for core/, plus project-ui's save-error messages
 scripts/        development-time tools; never loaded by the app
 ```
 
@@ -46,15 +46,26 @@ the same `core/` serves the desktop build, the web demo, and the export
 targets, none of which share a DOM.
 
 Load order matters and is fixed in `ui/index.html` — `color` → `draw` →
-`sheet` → `templates` → `editor`. `sheet.js` reads `SpriteForge.color` at IIFE
-time, and `editor.js` binds every core export at its top.
+`sheet` → `templates` → `editor`. `sheet.js` and `project.js` both read
+`SpriteForge.color` at IIFE time, and `editor.js` binds every core export at
+its top.
 
-After `editor.js` come `sprites-ui.js`, `project-ui.js`, `targets-ui.js` and
-`menu.js`, in that order. sprites-ui seeds itself from the blank sprite the
+After `editor.js` come `sprites-ui.js`, `project-ui.js`, `targets-ui.js`,
+`help-ui.js` and `menu.js`, in that order. sprites-ui seeds itself from the blank sprite the
 editor has already built, so it must come after it; project-ui asks sprites-ui
 for the whole list when saving; targets-ui reads the current project from
-project-ui; menu.js dispatches to all of them and implements nothing itself, so
-it loads last.
+project-ui; help-ui.js owns the two HELP modals and depends on
+none of them; menu.js dispatches to all of them and implements nothing itself,
+so it loads last.
+
+Two calls run against that order, both because a colour change is the
+project's business and not one sprite's. Applying a theme asks project-ui.js,
+which owns the dialogs, and falls back to swapping the swatches alone when
+there is no answer. REPLACE and a slot recolour ask sprites-ui.js to rewrite
+the sprites that are not on the canvas, and to hand back a copy of the list
+for the undo entry — which is why those entries, alone among them, carry every
+sprite. Both are read at call time and never captured: neither module exists
+yet when editor.js is evaluated.
 
 The sprite being edited lives in the editor and nowhere else — the editor is
 the only thing that knows about a stroke half finished on the canvas. The rest
@@ -127,7 +138,9 @@ app/ui/index.html                   the footer, which only the web build shows
 ```
 
 The footer is the one that rots, because the desktop build hides it — it sat at
-"v1.0" through everything up to 0.2.0. Check it.
+"v1.0" through everything up to 0.2.0. Check it. It is now also the only copy
+in that file: the Credits modal reads `#app-version` out of it rather than
+printing a sixth.
 
 ## Vendored colour themes
 
