@@ -138,9 +138,56 @@ app/ui/index.html                   the footer, which only the web build shows
 ```
 
 The footer is the one that rots, because the desktop build hides it — it sat at
-"v1.0" through everything up to 0.2.0. Check it. It is now also the only copy
-in that file: the Credits modal reads `#app-version` out of it rather than
-printing a sixth.
+"v1.0" through everything up to 0.2.0. It is now also the only copy in that
+file: the Credits modal reads `#app-version` out of it rather than printing a
+sixth, and the desktop build overwrites it from `app_version` (Cargo.toml, via
+`CARGO_PKG_VERSION`).
+
+You no longer have to remember to check it. `tests/version.test.mjs` holds
+`tauri.conf.json` and the footer to Cargo.toml, so a bump that forgets either
+fails `npm test`. The two package.json files are deliberately NOT asserted —
+they are build tooling, nothing publishes them, and wiring them in would be
+fixing a consistency nobody depends on.
+
+## The shared kit
+
+`app/kit/` and `tests/kit/` are **vendored** from the `magma-kit` sibling
+checkout and are GENERATED — see `app/kit/KIT.md` for the version and hashes.
+Never edit them here:
+
+```
+npm run sync-kit     re-vendor
+npm run check:kit    verify nothing has drifted
+```
+
+The kit owns the crash-reporting boot script, the Tauri bridge substrate, the
+keyboard resolver, the undo/redo stack, the prefs helper, the `<dialog>`
+idioms, and the test harness — all of which used to exist here and in
+magma-ops-app as forks of each other. It also owns the Rust behind the file
+commands, the log file and the close guard (`magma-kit = { path = ... }` in
+`desktop/src-tauri/Cargo.toml`, so the sibling checkout has to be present to
+build).
+
+What stays here is what is actually this app's: the load ORDER, the namespace,
+the canvas shims `core/sheet.js` needs, the bindings TABLE, and what an undo
+state IS. If a kit file ever needs app-specific content, the design is wrong —
+move the content here and pass it in.
+
+`@tauri-apps/cli` is pinned EXACTLY, to the same version magma-ops-app pins,
+because `kit/bridge-core.js` subscribes to events through `transformCallback`,
+a Tauri internal, and both apps now ride the one copy of that code.
+
+## One keyboard table
+
+`core/keybindings.js` holds every shortcut. `editor.js`, `project-ui.js` and
+`help-ui.js` each resolve through the kit and pass the list of actions they
+handle, so none can swallow another's key (Ctrl+O is Open; bare `o` is the
+origin tool). Do not add a fifth `keydown` listener that parses keys itself —
+that is how the old ones came to disagree about what counts as typing. menu.js
+keeps its Escape-to-close, which is a dismissal rather than a shortcut.
+
+A menu item that prints a shortcut must answer to it; `tests/keybindings.test.mjs`
+asserts every shortcut the menu bar prints actually resolves.
 
 ## Vendored colour themes
 

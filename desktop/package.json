@@ -8,6 +8,7 @@
     "build": "tauri build"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "_comment": "Pinned EXACTLY, and to the same version magma-ops-app pins. app/kit/bridge-core.js subscribes to events through transformCallback, a Tauri internal, so the shape must not shift under a patch bump — and both apps now ride the one copy of that code.",
+    "@tauri-apps/cli": "2.9.2"
   }
 }
