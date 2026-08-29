@@ -378,7 +378,10 @@ input[type="number"]:focus { outline: none; border-color: var(--cyan); }
     margin-top: 6px;
 }
 
-.hint code {
+/* Modal prose gets the same inline-code treatment the sidebar hints do —
+   a path named in a sentence should look like a path in both places. */
+.hint code,
+.modal-body code {
     color: var(--cyan);
     background: var(--bg);
     border: 1px solid var(--border);

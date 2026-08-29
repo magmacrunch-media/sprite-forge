@@ -21,7 +21,7 @@ app/            everything the shipped app loads, and nothing else
   core/         pure logic — no DOM, no Tauri, no filesystem
   ui/           the DOM layer: canvas, widgets, mutable editor state
   shell/        vendored from magmacrunch.com's ware/shell (see below)
-  fonts/        self-hosted faces the shell asks for
+  fonts/        self-hosted faces the shell asks for, and their OFL licences
 desktop/        the Tauri shell
 tests/          node tests for core/, plus project-ui's save-error messages
 ```
