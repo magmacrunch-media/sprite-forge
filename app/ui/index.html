@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-app="SpriteForge">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,13 +9,26 @@
     <link rel="stylesheet" href="../shell/app-shell.css">
     <link rel="stylesheet" href="../shell/toast.css">
     <link rel="stylesheet" href="style.css">
-    <!-- bridge.js loads here rather than with the other scripts at the end of
-         the body. It decides whether there is a filesystem at all, and marks
-         <html class="desktop"> when there is; doing that after the body has
-         painted flashes the website's back link on every launch. It cannot be
-         an inline script either — the desktop build's CSP is default-src 'self'
-         with no script-src, so inline is blocked and only files load. Nothing
-         in it reads the DOM tree, so running before that tree exists is safe. -->
+    <!-- kit/ and bridge.js load here rather than with the other scripts at the
+         end of the body. bridge-core.js decides whether there is a filesystem
+         at all, and marks <html class="desktop"> when there is; doing that
+         after the body has painted flashes the website's back link on every
+         launch. They cannot be inline scripts either — the desktop build's CSP
+         is default-src 'self' with no script-src, so inline is blocked and only
+         files load. Nothing in them reads the DOM tree, so running before that
+         tree exists is safe.
+
+         kit/boot.js is FIRST, ahead of everything: it exists to report failures
+         in the modules that follow it, so it can depend on none of them. The
+         kit files are vendored from magma-kit — GENERATED, see app/kit/KIT.md;
+         edit them there and run `npm run sync-kit`. -->
+    <script src="../kit/boot.js"></script>
+    <script src="../kit/bridge-core.js"></script>
+    <script src="../kit/keys.js"></script>
+    <script src="../kit/history.js"></script>
+    <script src="../kit/prefs.js"></script>
+    <script src="../kit/modal.js"></script>
+    <script src="../kit/dom.js"></script>
     <script src="bridge.js"></script>
 </head>
 <body>

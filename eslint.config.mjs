@@ -32,6 +32,8 @@ const browser = {
     // The app's own globals, which are not on window by accident: core/ and
     // ui/ are classic scripts that publish themselves this way.
     SpriteForge: 'writable', CharacterTemplates: 'readonly', Toast: 'readonly',
+    // The vendored kit, which app/ files call but do not define.
+    MagmaKit: 'readonly',
 };
 
 const node = {
@@ -74,7 +76,10 @@ const rules = {
 
 export default [
     {
-        ignores: ['node_modules/**', 'desktop/**', '.claude/**', 'app/shell/**'],
+        // app/kit/ and tests/kit/ are vendored from magma-kit and linted
+        // there; app/shell/ is vendored from the website the same way.
+        ignores: ['node_modules/**', 'desktop/**', '.claude/**', 'app/shell/**',
+            'app/kit/**', 'tests/kit/**'],
     },
     {
         files: ['app/**/*.js'],

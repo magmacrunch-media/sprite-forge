@@ -1,27 +1,6 @@
-// Assertion helpers and the result tally. Separate from run.mjs so the suites
-// can import them without forming a cycle with the runner that imports them.
+// Assertion helpers and the result tally, from the kit (tests/kit/assert.mjs,
+// vendored from magma-kit). Re-exported under the path every suite already
+// imports, so the suites did not all have to move at once — and so there stays
+// exactly one tally, which the runner reads.
 
-export const results = { pass: 0, fail: 0, fails: [] };
-
-export function test(name, fn) {
-    try { fn(); results.pass++; }
-    catch (e) {
-        results.fail++;
-        results.fails.push(`${name}\n    ${e.message.split('\n').join('\n    ')}`);
-    }
-}
-
-export function eq(actual, expected, what) {
-    const a = JSON.stringify(actual), b = JSON.stringify(expected);
-    if (a !== b) throw new Error(`${what || 'value'}:\n      got ${a}\n      want ${b}`);
-}
-
-export function ok(cond, what) { if (!cond) throw new Error(what || 'expected truthy'); }
-
-export function throws(fn, match, what) {
-    let threw = null;
-    try { fn(); } catch (e) { threw = e; }
-    if (!threw) throw new Error(`${what || 'call'}: expected a throw, got none`);
-    if (match && !threw.message.includes(match))
-        throw new Error(`${what || 'call'}: message ${JSON.stringify(threw.message)} lacks ${JSON.stringify(match)}`);
-}
+export { results, test, eq, ok, throws } from './kit/assert.mjs';
