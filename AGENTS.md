@@ -24,7 +24,16 @@ app/            everything the shipped app loads, and nothing else
   fonts/        self-hosted faces the shell asks for
 desktop/        the Tauri shell
 tests/          node tests for core/
+scripts/        development-time tools; never loaded by the app
 ```
+
+`scripts/` runs in Node against `core/`, which is what `core/` having no DOM buys.
+`tests/harness.mjs` is how: it evaluates the classic scripts against a stub window
+and exports the fake canvas alongside `loadCore`, so a script that needs to read
+pixels gets the same `getImageData` the suites do rather than a second shim that
+can drift from it. `scripts/png-decode.mjs` is the other half — Node has no image
+decoding, and the browser build never needs it because `new Image()` already does
+that job.
 
 **app/ exists because it is tauri.conf.json's `frontendDist`, and Tauri embeds
 that directory whole.** Pointing it at the repo root put `.git`, `node_modules`,
@@ -113,6 +122,24 @@ by hand and is not regenerated.
 
 A theme is only the set of swatches you draw *from*. It never rewrites placed
 pixels — that is REPLACE and the template slots.
+
+## Importing a game's existing art
+
+`node scripts/import-moonlight-drift.mjs` turns moonlight-drift's 48 pre-rendered
+Wii PNGs into 24 `.forge` projects, named and origin-stamped so Export drops them
+back on the files they came from. Nothing about it is Moonlight Drift's alone —
+any game whose art predates this editor meets the same two walls:
+
+- **No partial alpha.** `core/sheet.js` is on-or-off, so an antialiased render
+  loses its soft edges coming in. On that roster it costs 3% of one character and
+  98% of another, who is a deliberately translucent ghost. The script hardens the
+  image at a cutoff you pass rather than pretending the default suits everyone.
+- **89 colours.** That is `core/project.js`'s `ALPHABET`, one character per colour,
+  and 15 of those 24 characters have more. Colours have to be reduced to import at
+  all, so the script does it by pixel count and snaps the rest to the nearest.
+
+The editor's own File > Import hits the second wall too, and later: it imports
+fine and then cannot save.
 
 ## Vendored shell
 

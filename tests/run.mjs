@@ -8,7 +8,7 @@ const SF = loadCore();
 for (const mod of ['color', 'draw', 'sheet', 'templates', 'project'])
     if (!SF[mod]) { console.error(`core/${mod} did not attach to SpriteForge`); process.exit(1); }
 
-const suites = ['./project.test.mjs', './color.test.mjs', './draw.test.mjs', './sheet.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './targets-store.test.mjs', './palettes.test.mjs'];
+const suites = ['./project.test.mjs', './color.test.mjs', './draw.test.mjs', './sheet.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs'];
 for (const s of suites) (await import(s)).default(SF);
 
 console.log(`${results.pass} passed, ${results.fail} failed`);
