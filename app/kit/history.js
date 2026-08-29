@@ -57,9 +57,19 @@
             redoStack.length = 0;
         }
 
-        // The pending snapshot is boxed, not held bare: a state that happens
-        // to be falsy (0, '', null) must still commit.
-        function beginStroke() { pending = { state: snapshot() }; }
+        /* The pending snapshot is boxed, not held bare: a state that happens
+           to be falsy (0, '', null) must still commit.
+
+           IDEMPOTENT, and that is the point. A colour picker fires `input`
+           continuously through a drag and a range slider does the same, so
+           every consumer drives this from an event that repeats. Re-snapshotting
+           on each call would capture the already-dragged state and a single
+           drag would become two hundred undo entries — which is why all three
+           consuming apps had independently wrapped this in an `inStroke` latch
+           before the guard moved here where it belongs. The boxed pending
+           already distinguishes "no stroke open" from "a stroke whose state is
+           falsy", so the test is exact. */
+        function beginStroke() { if (!pending) pending = { state: snapshot() }; }
         function commitStroke() { if (pending) { push(pending.state); pending = null; } }
         function cancelStroke() { pending = null; }
 

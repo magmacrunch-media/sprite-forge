@@ -18,11 +18,16 @@ export const ORDER = ['color.js', 'draw.js', 'sheet.js', 'templates.js', 'projec
     'targets/gamemaker.js', 'targets/engines.js', 'targets/store.js',
     'ops-themes.js', 'palettes.js', 'keybindings.js'];
 
-// The kit files core/ is allowed to lean on: the pure ones. boot.js and
-// bridge-core.js are load-order concerns, not sandbox concerns — one attaches
-// window listeners and the other detects Tauri, and a core module that needed
-// either would belong in ui/.
-export const KIT_ORDER = ['keys.js', 'history.js', 'prefs.js', 'modal.js', 'dom.js'];
+// The kit files loaded into the sandbox, and the order run.mjs holds
+// index.html to. boot.js and bridge-core.js are load-order concerns, not
+// sandbox concerns — one attaches window listeners and the other detects
+// Tauri, and a core module that needed either would belong in ui/.
+//
+// menu.js is here for the index.html assertion rather than because core/ leans
+// on it: it is ui-layer behaviour, but its module body only attaches a factory
+// and touches no DOM until create() is called, so loading it costs nothing.
+export const KIT_ORDER = ['keys.js', 'history.js', 'prefs.js', 'modal.js', 'dom.js',
+    'menu.js'];
 
 // core/sheet.js is the only module that touches browser drawing APIs, and only
 // to compose or read back a bitmap. The shims are just enough for that; they

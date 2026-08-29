@@ -1,29 +1,25 @@
-// menu.js — the desktop build's menu bar.
+// menu.js — what this app's menu items mean.
 //
-// Drawn in the page, not by Windows. A native menu bar is rendered by the OS
-// in the OS font, and this app is Press Start 2P and Courier Prime on a
-// scanline; a strip of Segoe UI across the top of it would look like a
-// different program wearing the window. Drawing it here also keeps the
-// frontend dependency-free — no @tauri-apps/api, no event bridge, no Rust
-// menu-event plumbing — which is the same reason bridge.js talks to the IPC
-// by hand.
+// The bar's behaviour — open, close, hover-to-switch, Escape, the state
+// refresh on every open — moved to MagmaKit.menu in magma-kit 0.2.0, extracted
+// from THIS file once album//art became the second app with a menu bar. The
+// reasoning that put it in the page rather than in the OS went with it.
 //
-// It owns no behaviour. Every item routes to something that already exists:
-// the project actions on SpriteForge.projectUI, undo/redo on the editor's one
-// state accessor, and the View toggles to the toolbar buttons they name, by
-// clicking them. That last one matters — the menu never becomes a second
-// implementation of a toggle that can drift from the button.
+// What is left is the only part that was ever about sprites: the actions map,
+// and the two predicates that say when an item is dead.
+//
+// IT STILL OWNS NO BEHAVIOUR. Every item routes to something that already
+// exists, and the View items proxy the toolbar buttons they name BY CLICKING
+// THEM — so the menu never becomes a second implementation of a toggle that
+// can drift from the button.
 
 (function () {
-    const bar = document.getElementById('menubar');
-    if (!bar) return;
-
     const P = () => window.SpriteForge.projectUI;
     const E = () => window.SpriteForge.editor;
     const H = () => window.SpriteForge.helpUI;
     const fs = () => window.SpriteForge.fs;
 
-    /** The toolbar button a View item stands for. */
+    /** The toolbar button an item stands for. */
     const proxied = (btn) => document.getElementById(btn.dataset.toggles || '');
 
     const actions = {
@@ -55,56 +51,14 @@
         'help:credits': () => H().credits(),
     };
 
-    // ── open / closed ───────────────────────────────────────
-
-    let open = null;
-
-    function close() {
-        if (!open) return;
-        open.classList.remove('open');
-        open = null;
+    /** Which items are dead right now. Asked fresh every time a menu opens,
+     *  because the undo depth changes from under us. Anything this does not
+     *  answer for falls back to the kit's data-toggles rule. */
+    function state(action) {
+        if (action === 'edit:undo') return { disabled: !E().canUndo() };
+        if (action === 'edit:redo') return { disabled: !E().canRedo() };
+        return null;
     }
 
-    function show(menu) {
-        if (open === menu) return close();
-        close();
-        sync();
-        menu.classList.add('open');
-        open = menu;
-    }
-
-    /** Item state, read fresh every time a menu opens rather than kept in
-     *  step: undo depth and the three toggles all change from under us. */
-    function sync() {
-        for (const item of bar.querySelectorAll('[data-action]')) {
-            const action = item.dataset.action;
-
-            if (action === 'edit:undo') item.disabled = !E().canUndo();
-            else if (action === 'edit:redo') item.disabled = !E().canRedo();
-
-            const target = proxied(item);
-            if (target) item.classList.toggle('checked', target.classList.contains('active'));
-        }
-    }
-
-    for (const menu of bar.querySelectorAll('.menu')) {
-        menu.querySelector('.menu-title').addEventListener('click', (e) => {
-            e.stopPropagation();
-            show(menu);
-        });
-        // Once one menu is open, sliding across the bar switches between them
-        // without another click — the one behaviour every real menu bar has
-        // and no plain <details> gives you for free.
-        menu.addEventListener('mouseenter', () => { if (open && open !== menu) show(menu); });
-    }
-
-    bar.addEventListener('click', (e) => {
-        const item = e.target.closest('[data-action]');
-        if (!item || item.disabled) return;
-        close();
-        actions[item.dataset.action](item);
-    });
-
-    document.addEventListener('click', close);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    window.MagmaKit.menu.create(document.getElementById('menubar'), { actions, state });
 }());
