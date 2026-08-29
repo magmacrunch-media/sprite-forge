@@ -1,7 +1,7 @@
 import { test, eq, ok } from './assert.mjs';
 
 export default function (SF) {
-    const { hexToRgb, hexToHsl, hslToHex, shadeHex } = SF.color;
+    const { hexToRgb, hexToHsl, hslToHex, shadeHex, nearestHex } = SF.color;
 
     test('hexToRgb parses the channels', () => {
         eq(hexToRgb('#000000'), [0, 0, 0], 'black');
@@ -55,6 +55,38 @@ export default function (SF) {
     test('lightness is clamped, so black and white still produce a ramp', () => {
         ok(shadeHex('#000000', -2) !== shadeHex('#000000', 2), 'black ramps');
         ok(shadeHex('#ffffff', -2) !== shadeHex('#ffffff', 2), 'white ramps');
+    });
+
+    // sheet.js leans on this to snap an imported PNG's dropped colours onto the
+    // swatches it kept, which is what stops an import producing a project with
+    // more colours than the .forge key can name.
+    test('nearestHex picks the closest entry in RGB', () => {
+        const pal = ['#000000', '#ff0000', '#ffffff'];
+        eq(nearestHex('#0a0a0a', pal), '#000000', 'near-black');
+        eq(nearestHex('#fefefe', pal), '#ffffff', 'near-white');
+        eq(nearestHex('#e00000', pal), '#ff0000', 'near-red');
+    });
+
+    test('nearestHex returns a palette member exactly, identity intact', () => {
+        // === on hexes is how the palette, the slots and the .forge key all
+        // recognise a colour, so this must be the string from the palette and
+        // not an equal one built by arithmetic.
+        const pal = ['#34495e', '#7cb342'];
+        ok(pal.includes(nearestHex('#34495e', pal)), 'a kept colour maps to itself');
+        eq(nearestHex('#34495e', pal), '#34495e', 'and to the same value');
+        ok(pal.includes(nearestHex('#123456', pal)), 'a stranger maps into the palette');
+    });
+
+    test('nearestHex breaks ties toward the earlier entry', () => {
+        // #000002 sits exactly two steps from each of these. The palette from
+        // sheet.js is ordered commonest-first, so on a tie the earlier entry
+        // is the one more of the image was already using.
+        eq(nearestHex('#000002', ['#000000', '#000004']), '#000000', 'first wins');
+        eq(nearestHex('#000002', ['#000004', '#000000']), '#000004', 'order decides');
+    });
+
+    test('nearestHex has no answer for an empty palette', () => {
+        eq(nearestHex('#ff0000', []), null, 'null rather than undefined or a throw');
     });
 
     test('hexToRgb memoises without aliasing callers', () => {

@@ -23,7 +23,7 @@ app/            everything the shipped app loads, and nothing else
   shell/        vendored from magmacrunch.com's ware/shell (see below)
   fonts/        self-hosted faces the shell asks for
 desktop/        the Tauri shell
-tests/          node tests for core/
+tests/          node tests for core/, plus project-ui's save-error messages
 ```
 
 **app/ exists because it is tauri.conf.json's `frontendDist`, and Tauri embeds

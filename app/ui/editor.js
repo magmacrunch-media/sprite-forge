@@ -926,7 +926,14 @@ document.getElementById('import-confirm').addEventListener('click', () => {
     origin.x = Math.min(origin.x, w); origin.y = Math.min(origin.y, h);
     const truncated = sliced.truncated
       ? ` (image not evenly divisible by ${w}×${h} — trailing pixels dropped)` : '';
-    exportOutput.value = `// imported ${frames.length} frame${frames.length === 1 ? '' : 's'} of ${w}×${h} from ${file.name}${truncated}`;
+    // sheet.js snaps the colours it could not keep onto the nearest one it
+    // did, so this is a change to the pixels the user is now looking at and
+    // has to be said out loud rather than left in the export header. A
+    // full-colour photograph loses hundreds of colours here.
+    const snapped = sliced.colors > sliced.palette.length
+      ? ` (${sliced.colors} colours reduced to ${sliced.palette.length})` : '';
+    if (snapped) Toast.show(`${sliced.colors} COLOURS SNAPPED TO ${sliced.palette.length}`);
+    exportOutput.value = `// imported ${frames.length} frame${frames.length === 1 ? '' : 's'} of ${w}×${h} from ${file.name}${snapped}${truncated}`;
     syncOriginInputs(); sizeCanvas(); render(); renderSheet(); updateFrameLabel();
     importModal.close();
   };

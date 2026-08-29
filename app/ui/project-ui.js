@@ -103,9 +103,34 @@
         await writeTo(currentPath);
     }
 
+    // core/project.js throws two shapes: one sentence from serialize(), and a
+    // "cannot save this project:" header over one indented line per problem
+    // from validate(). A toast is one line, so take the first problem and say
+    // how many more the console is holding.
+    function firstProblem(message) {
+        const lines = String(message).split('\n').map(s => s.trim()).filter(Boolean);
+        if (lines.length < 2) return lines[0] || 'could not save';
+        return lines[1] + (lines.length > 2 ? ` (+${lines.length - 2} more)` : '');
+    }
+
     async function writeTo(path) {
+        // Encoding runs first and separately, because the two failures are
+        // not the same kind of news. A project that cannot be encoded — too
+        // many colours for the key, two sprites sharing a name — fails for a
+        // reason the user can go and fix, and naming it is the difference
+        // between a fixable project and a mysterious one. A disk that will
+        // not take the bytes is not theirs to fix, and the message would be
+        // the OS's rather than ours.
+        let text;
         try {
-            await fs().writeText(path, P.stringify(currentProject()));
+            text = P.stringify(currentProject());
+        } catch (e) {
+            toast(firstProblem(e.message));
+            console.error('save failed:', e);
+            return;
+        }
+        try {
+            await fs().writeText(path, text);
             savedRevision = editor.revision();
             refresh();
             toast('saved');

@@ -74,5 +74,29 @@ window.SpriteForge.color = (function () {
         );
     }
 
-    return { hexToRgb, hexToHsl, hslToHex, shadeHex };
+    /**
+     * The entry of `palette` nearest `hex`, by squared distance in RGB.
+     *
+     * Plain RGB rather than a perceptual space, on purpose: the caller that
+     * needs this is snapping an imported PNG onto swatches harvested from that
+     * same PNG, so every candidate is already one of the image's own colours
+     * and the nearest of them is nearest under any metric worth the arithmetic.
+     * Ties go to the earlier entry, which is the commonest colour when the
+     * palette came from sheet.js.
+     *
+     * Returns null for an empty palette — there is no nearest anything.
+     */
+    function nearestHex(hex, palette) {
+        const [r, g, b] = hexToRgb(hex);
+        let best = null, bestD = Infinity;
+        for (const c of palette) {
+            const [cr, cg, cb] = hexToRgb(c);
+            const dr = r - cr, dg = g - cg, db = b - cb;
+            const d = dr * dr + dg * dg + db * db;
+            if (d < bestD) { bestD = d; best = c; }
+        }
+        return best;
+    }
+
+    return { hexToRgb, hexToHsl, hslToHex, shadeHex, nearestHex };
 })();
