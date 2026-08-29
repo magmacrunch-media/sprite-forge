@@ -16,4 +16,5 @@ has drifted, run `npm run check:kit`.
 - `tests/kit/assert.mjs` sha256:7c7e1a4db1d3e78d969ebdb181ca4d72936cde6610b157eb0813a7481653e545
 - `tests/kit/canvas-shim.mjs` sha256:0901522900a188e8d40841ba6d0a7db7c5e24d387e03c971282ce8efc07a7685
 - `tests/kit/harness.mjs` sha256:2ae89392ea36874c555cfd17b269baf361d0c4c081c5535dac599c32eee237f3
+- `tests/kit/kit-integrity.mjs` sha256:dddcae7ad5ca904e1c42bf3df60e2dbce29bb826f77cbe6e918c5fa5220bc84f
 - `tests/kit/versions.mjs` sha256:a8246439d16d55bf80388035426c4289589188eaa201ba8d09369938d31357b4

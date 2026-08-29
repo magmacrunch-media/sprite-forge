@@ -33,7 +33,7 @@ test('index.html loads kit/ then core/, before ui/', () => {
     ok(srcs.indexOf('editor.js') > lastCore, 'editor.js loads after every core/ module');
 });
 
-const suites = ['./project.test.mjs', './color.test.mjs', './draw.test.mjs', './sheet.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs', './project-ui.test.mjs', './sprites-ui.test.mjs', './keybindings.test.mjs', './version.test.mjs'];
+const suites = ['./project.test.mjs', './color.test.mjs', './draw.test.mjs', './sheet.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs', './project-ui.test.mjs', './sprites-ui.test.mjs', './keybindings.test.mjs', './version.test.mjs', './kit-integrity.test.mjs'];
 // Awaited because project-ui.test.mjs drives async Save calls. The sync suites
 // return undefined and are unaffected; without it the tally below would print
 // before the async one had finished counting.
