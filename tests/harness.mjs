@@ -16,7 +16,7 @@ const APP = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 
 export const ORDER = ['color.js', 'draw.js', 'sheet.js', 'templates.js', 'project.js',
     'targets/gamemaker.js', 'targets/engines.js', 'targets/store.js',
-    'ops-themes.js', 'palettes.js'];
+    'ops-themes.js', 'palettes.js', 'keybindings.js'];
 
 // The kit files core/ is allowed to lean on: the pure ones. boot.js and
 // bridge-core.js are load-order concerns, not sandbox concerns — one attaches

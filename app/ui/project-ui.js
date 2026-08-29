@@ -319,14 +319,27 @@
         refresh();
     }
 
+    // The project shortcuts, resolved through the app's one bindings table
+    // (core/keybindings.js). `available` is what keeps this listener from
+    // swallowing a key another one owns: Ctrl+Z resolves to edit:undo, which is
+    // not on this list, so it comes back null here and the editor gets it.
+    const ACTIONS = {
+        'project:save': doSave,
+        'project:save-as': doSaveAs,
+        'project:open': doOpen,
+        'project:new': doNew,
+    };
+    const KB = window.SpriteForge.keybindings;
+    const KEYS = MagmaKit.keys.create(KB.BINDINGS);
+    const NAMES = Object.keys(ACTIONS);
+
     document.addEventListener('keydown', (e) => {
+        // Desktop only: without a filesystem there is nothing to save to.
         if (!fs()) return;
-        if (!(e.metaKey || e.ctrlKey)) return;
-        if (e.key === 's') { e.preventDefault(); if (e.shiftKey) doSaveAs(); else doSave(); }
-        else if (e.key === 'o') { e.preventDefault(); doOpen(); }
-        // Bound because the File menu prints it. A menu that names a shortcut
-        // it does not answer to is worse than a menu with no shortcuts on it.
-        else if (e.key === 'n') { e.preventDefault(); doNew(); }
+        const action = KEYS.resolve(e, NAMES);
+        if (!action) return;
+        if (KB.prevents(action)) e.preventDefault();
+        ACTIONS[action]();
     });
 
     // The dirty marker has to react to drawing, which does not notify anyone.

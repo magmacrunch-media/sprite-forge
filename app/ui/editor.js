@@ -1048,36 +1048,61 @@ document.getElementById('clear-btn').addEventListener('click', () => {
 
 // ── Keyboard shortcuts ──────────────────────────────────
 
+// What each action does. The names come from core/keybindings.js, which is the
+// one table the whole app parses keys through; the menu reaches several of
+// these by the same names through its own data-action strings.
+const KEY_ACTIONS = {
+  'edit:undo': () => undo(),
+  'edit:redo': () => redo(),
+
+  'tool:pencil': () => setTool('pencil'),
+  'tool:erase': () => setTool('erase'),
+  'tool:fill': () => setTool('fill'),
+  'tool:line': () => setTool('line'),
+  'tool:rect': () => setTool('rect'),
+  'tool:ellipse': () => setTool('ellipse'),
+  'tool:pick': () => setTool('pick'),
+  'tool:origin': () => setTool('origin'),
+
+  'view:zoom-fit': () => fitToWindow(),
+  'view:grid': () => setGrid(!gridOn),
+  'view:mirror': () => setMirror(!mirrorX),
+  'view:onion': () => setOnion(!onionSkin),
+  'view:dock': () => setDock(!dockOn),
+  'view:zoom-out': () => setZoom([...ZOOM_STEPS].reverse().find(s => s < zoom) ?? zoom),
+  'view:zoom-in': () => setZoom(ZOOM_STEPS.find(s => s > zoom) ?? zoom),
+
+  'frame:prev': () => stepFrame(-1),
+  'frame:next': () => stepFrame(1),
+  'anim:play': () => setPlaying(!anim.playing),
+
+  'transform:flip-h': () => document.getElementById('flip-h').click(),
+  'transform:flip-v': () => document.getElementById('flip-v').click(),
+  'transform:rot-90': () => document.getElementById('rot-90').click(),
+  'shift:left': () => shiftFrame(-1, 0),
+  'shift:right': () => shiftFrame(1, 0),
+  'shift:up': () => shiftFrame(0, -1),
+  'shift:down': () => shiftFrame(0, 1),
+
+  'file:templates': () => document.getElementById('template-btn').click(),
+};
+
+function setTool(name) { tool = name; updateToolActive(); }
+
+const KB = window.SpriteForge.keybindings;
+const KEYS = MagmaKit.keys.create(KB.BINDINGS);
+const EDITOR_ACTIONS = Object.keys(KEY_ACTIONS);
+
 document.addEventListener('keydown', (e) => {
   // Any open dialog swallows the shortcuts, rather than the two named ones:
-  // the GameMaker sprite picker is a third, and there will be a fourth.
-  if ((e.target.matches && e.target.matches('input, textarea'))
-      || document.querySelector('dialog[open]')) return;
-  const m = e.metaKey || e.ctrlKey;
-  if (m && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
-  if (m && e.key === 'z' && e.shiftKey)  { e.preventDefault(); redo(); return; }
-  if (m && e.key === 'y')                { e.preventDefault(); redo(); return; }
-  if (m) return;
-  const tools = { b: 'pencil', e: 'erase', g: 'fill', l: 'line', u: 'rect', c: 'ellipse', i: 'pick', o: 'origin' };
-  if (tools[e.key]) { tool = tools[e.key]; updateToolActive(); }
-  else if (e.key === 't') document.getElementById('template-btn').click();
-  else if (e.key === 'm') setMirror(!mirrorX);
-  else if (e.key === 'n') setOnion(!onionSkin);
-  else if (e.key === 'd') setGrid(!gridOn);
-  else if (e.key === 'f') fitToWindow();
-  else if (e.key === 'p') setDock(!dockOn);
-  else if (e.key === 'h') document.getElementById('flip-h').click();
-  else if (e.key === 'v') document.getElementById('flip-v').click();
-  else if (e.key === 'r') document.getElementById('rot-90').click();
-  else if (e.key === ' ') { e.preventDefault(); setPlaying(!anim.playing); }
-  else if (e.key === 'ArrowLeft')  { e.preventDefault(); shiftFrame(-1, 0); }
-  else if (e.key === 'ArrowRight') { e.preventDefault(); shiftFrame(1, 0); }
-  else if (e.key === 'ArrowUp')    { e.preventDefault(); shiftFrame(0, -1); }
-  else if (e.key === 'ArrowDown')  { e.preventDefault(); shiftFrame(0, 1); }
-  else if (e.key === '[') stepFrame(-1);
-  else if (e.key === ']') stepFrame(1);
-  else if (e.key === '-') setZoom([...ZOOM_STEPS].reverse().find(s => s < zoom) ?? zoom);
-  else if (e.key === '=') setZoom(ZOOM_STEPS.find(s => s > zoom) ?? zoom);
+  // the GameMaker sprite picker is a third, and there will be a fourth. The
+  // typing guard is the kit's, which counts a <select> as typing too — a
+  // letter there is type-ahead, not a tool change.
+  if (document.querySelector('dialog[open]')) return;
+  const action = KEYS.resolve(e, EDITOR_ACTIONS);
+  if (!action) return;
+  if (KB.prevents(action)) e.preventDefault();
+  KEY_ACTIONS[action]();
 });
 
 // ── Colour themes ───────────────────────────────────────

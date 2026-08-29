@@ -84,6 +84,18 @@
         // theirs and ships with an empty list.
         configDir: () => invoke('config_dir'),
 
+        // ── about ────────────────────────────────────────────
+        appVersion: () => invoke('app_version'),
+
+        // ── the log file ─────────────────────────────────────
+        // kit/boot.js writes here directly, before this file exists. These are
+        // for everything after it. Fire-and-forget: a failure to log must never
+        // become a failure to run.
+        logLine: (kind, message, detail) =>
+            invoke('log_line', { kind, message, detail: detail === undefined ? null : String(detail) })
+                .catch(() => {}),
+        logPath: () => invoke('log_path'),
+
         // ── lifecycle ────────────────────────────────────────
         quit: () => invoke('quit'),
 

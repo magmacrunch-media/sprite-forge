@@ -45,10 +45,13 @@
 
     // F1 is what every other program answers with, and the menu prints it, so
     // it has to work — a menu naming a shortcut it ignores is worse than one
-    // naming none. Bound here rather than in editor.js because that handler
-    // stands down whenever a dialog is open, and this one has to toggle.
+    // naming none. Listened for here rather than in editor.js because that
+    // handler stands down whenever a dialog is open, and this one has to
+    // toggle. The binding itself is in core/keybindings.js with the rest.
+    const KEYS = MagmaKit.keys.create(window.SpriteForge.keybindings.BINDINGS);
+
     document.addEventListener('keydown', (e) => {
-        if (e.key !== 'F1') return;
+        if (KEYS.resolve(e, ['help:reference']) !== 'help:reference') return;
         e.preventDefault();
         if (reference.open) reference.close();
         else open(reference);
