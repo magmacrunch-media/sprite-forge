@@ -24,7 +24,16 @@ app/            everything the shipped app loads, and nothing else
   fonts/        self-hosted faces the shell asks for, and their OFL licences
 desktop/        the Tauri shell
 tests/          node tests for core/, plus project-ui's save-error messages
+scripts/        development-time tools; never loaded by the app
 ```
+
+`scripts/` runs in Node against `core/`, which is what `core/` having no DOM buys.
+`tests/harness.mjs` is how: it evaluates the classic scripts against a stub window
+and exports the fake canvas alongside `loadCore`, so a script that needs to read
+pixels gets the same `getImageData` the suites do rather than a second shim that
+can drift from it. `scripts/png-decode.mjs` is the other half — Node has no image
+decoding, and the browser build never needs it because `new Image()` already does
+that job.
 
 **app/ exists because it is tauri.conf.json's `frontendDist`, and Tauri embeds
 that directory whole.** Pointing it at the repo root put `.git`, `node_modules`,
@@ -74,6 +83,28 @@ the website chrome before the body paints rather than flashing it on every
 launch. That mark cannot come from an inline script — the desktop CSP is
 `default-src 'self'` with no `script-src`, so inline is blocked. It touches no
 DOM tree and no core export, so running first costs nothing.
+
+## The workspace is height-constrained, and stays that way
+
+`#canvas-panel` is a three-row grid — toolbar, `#canvas-stage`, `#dock` — and the
+stage is the only row that gives. Add a fourth sibling and you are back to the
+layout this replaced, where the canvas was a sibling of the previews and pushed
+them off the bottom of the screen: a 128×128 sprite at the default 16× is a
+2048px canvas, which left 1893px of the column unreachable and the preview about
+1700px below the fold. Anything new belongs in the dock or the sidebar.
+
+Zoom fits on the way in. `sizeCanvas()` shrinks to the largest `ZOOM_STEPS` entry
+that fits, once per sprite size and **only downward** — growing to fit would
+fight anyone who has zoomed in, and zooming in past the window is how you draw a
+pixel. `setZoom` deliberately does not refit, so manual zoom survives.
+
+The sidebar is an accordion: one `details[data-section]` open at a time, because
+the sections total ~1400px and the column is 600–950px. Do not ship a section
+with `open` in the markup. The palette is the exception and is not a section at
+all — it is a `.side-block` above them, always visible, because every tool has a
+single-key shortcut and a swatch has none, so it is the one panel that cannot
+afford to be the thing you just closed. Keep it small; that is why THEME &
+REPLACE is its own section rather than living under it.
 
 ## Not ES modules, deliberately
 
@@ -126,6 +157,24 @@ by hand and is not regenerated.
 
 A theme is only the set of swatches you draw *from*. It never rewrites placed
 pixels — that is REPLACE and the template slots.
+
+## Importing a game's existing art
+
+`node scripts/import-moonlight-drift.mjs` turns moonlight-drift's 48 pre-rendered
+Wii PNGs into 24 `.forge` projects, named and origin-stamped so Export drops them
+back on the files they came from. Nothing about it is Moonlight Drift's alone —
+any game whose art predates this editor meets the same two walls:
+
+- **No partial alpha.** `core/sheet.js` is on-or-off, so an antialiased render
+  loses its soft edges coming in. On that roster it costs 3% of one character and
+  98% of another, who is a deliberately translucent ghost. The script hardens the
+  image at a cutoff you pass rather than pretending the default suits everyone.
+- **89 colours.** That is `core/project.js`'s `ALPHABET`, one character per colour,
+  and 15 of those 24 characters have more. Colours have to be reduced to import at
+  all, so the script does it by pixel count and snaps the rest to the nearest.
+
+The editor's own File > Import hits the second wall too, and later: it imports
+fine and then cannot save.
 
 ## Vendored shell
 

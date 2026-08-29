@@ -64,10 +64,12 @@
                     <div class="menu-drop" role="menu">
                         <button data-action="view:zoom-in">Zoom In<i>=</i></button>
                         <button data-action="view:zoom-out">Zoom Out<i>&minus;</i></button>
+                        <button data-action="view:zoom-fit">Fit to Window<i>F</i></button>
                         <hr>
                         <button data-action="view:grid" data-toggles="grid-toggle">Pixel Grid<i>D</i></button>
                         <button data-action="view:mirror" data-toggles="mirror-toggle">Mirror<i>M</i></button>
                         <button data-action="view:onion" data-toggles="onion-toggle">Onion Skin<i>N</i></button>
+                        <button data-action="view:dock" data-toggles="dock-toggle">Preview Dock<i>P</i></button>
                     </div>
                 </div>
                 <div class="menu">
@@ -99,15 +101,26 @@
                 <button id="zoom-out" title="Zoom out (-)">&minus;</button>
                 <span id="zoom-label">16&times;</span>
                 <button id="zoom-in" title="Zoom in (=)">+</button>
+                <button id="zoom-fit" class="tool-btn" title="Fit the sprite to the window (F)">&#8690; FIT</button>
                 <span class="tb-sep"></span>
                 <button id="grid-toggle" class="tool-btn toggle active" title="Toggle pixel grid (D)">&#9638; GRID</button>
                 <button id="mirror-toggle" class="tool-btn toggle" title="Mirror drawing across the vertical center (M)">&#8651; MIRROR</button>
                 <button id="onion-toggle" class="tool-btn toggle" title="Onion skin — ghost of the previous frame (N)">&#9678; ONION</button>
                 <span class="tb-sep"></span>
+                <button id="dock-toggle" class="tool-btn toggle active" title="Show the preview dock (P)">&#9707; PREVIEW</button>
+                <span class="tb-sep"></span>
                 <span id="canvas-dims" class="tb-stat">32 &times; 32</span>
             </div>
-            <canvas id="frame-canvas"></canvas>
-            <div class="preview-row">
+
+            <!-- The canvas scrolls inside the stage rather than growing the
+                 column. A 128x128 sprite at 16x is a 2048px canvas, and when
+                 it was a sibling of the previews it pushed them a screen and a
+                 half below the fold. -->
+            <div id="canvas-stage">
+                <canvas id="frame-canvas"></canvas>
+            </div>
+
+            <div id="dock">
                 <div class="preview-block">
                     <span class="sheet-label">animation</span>
                     <canvas id="anim-canvas"></canvas>
@@ -116,19 +129,34 @@
                     <span class="sheet-label">sheet; click a frame to edit it</span>
                     <canvas id="sheet-canvas"></canvas>
                 </div>
-            </div>
-            <div id="export-panel">
-                <div class="export-header">
-                    <span>EXPORT OUTPUT</span>
-                    <button id="copy-btn" title="Copy to clipboard">COPY</button>
+                <div id="export-panel">
+                    <div class="export-header">
+                        <span>EXPORT OUTPUT</span>
+                        <button id="copy-btn" title="Copy to clipboard">COPY</button>
+                    </div>
+                    <textarea id="export-output" readonly rows="4"></textarea>
                 </div>
-                <textarea id="export-output" readonly rows="5"></textarea>
             </div>
         </div>
 
         <div id="sidebar-resizer" title="Drag to resize the sidebar"></div>
 
         <aside id="sidebar" class="panel">
+            <!-- Outside the accordion, and first, so it never moves and is
+                 never the thing that got closed. Every tool has a single-key
+                 shortcut; a swatch has none, so the palette is the one panel
+                 that has to be reachable on every stroke. -->
+            <div class="side-block">
+                <div class="block-label">COLOR</div>
+                <div id="palette"></div>
+                <div class="color-chip-row">
+                    <div id="color-chip"></div>
+                    <span id="color-label">#000000</span>
+                    <button id="add-color-btn" title="Add current color as a swatch">+ ADD</button>
+                    <button id="ramp-btn" title="Add a 4-shade hue-shifted ramp of the current color">RAMP</button>
+                </div>
+            </div>
+
 <!-- Both builds: a sprite list needs no filesystem. -->
             <details class="side-section" data-section="sprites" open>
                 <summary>SPRITES</summary>
@@ -149,7 +177,7 @@
             <!-- Desktop only, like PROJECT above: targets-ui.js unhides it when a
                  filesystem bridge is present. The list itself lives in the OS
                  config directory, never in the repo. -->
-            <details class="side-section" data-section="targets" open hidden>
+            <details class="side-section" data-section="targets" hidden>
                 <summary>TARGETS</summary>
                 <div id="target-list" class="target-list"></div>
                 <div class="row">
@@ -166,7 +194,7 @@
                     the project's &mdash; it never leaves this machine.</div>
             </details>
 
-            <details class="side-section" data-section="tools" open>
+            <details class="side-section" data-section="tools">
                 <summary>TOOLS</summary>
                 <div id="tools" class="tool-grid">
                     <button class="tool-btn active" data-tool="pencil" title="Pencil (B)">&#9998;</button>
@@ -181,15 +209,11 @@
                 <div id="tool-readout" class="tool-readout"></div>
             </details>
 
-            <details class="side-section" data-section="color" open>
-                <summary>COLOR</summary>
-                <div id="palette"></div>
-                <div class="color-chip-row">
-                    <div id="color-chip"></div>
-                    <span id="color-label">#000000</span>
-                    <button id="add-color-btn" title="Add current color as a swatch">+ ADD</button>
-                    <button id="ramp-btn" title="Add a 4-shade hue-shifted ramp of the current color">RAMP</button>
-                </div>
+            <!-- Themes and REPLACE are occasional; they were two thirds of a
+                 COLOR section that the palette has to be able to sit outside of.
+                 The two hints alone were 133px of the old 421. -->
+            <details class="side-section" data-section="theme">
+                <summary>THEME &amp; REPLACE</summary>
                 <div class="sub-label">theme</div>
                 <div class="row">
                     <select id="palette-theme"></select>
@@ -214,7 +238,7 @@
                     project's. one undo step.</div>
             </details>
 
-            <details class="side-section" data-section="character" open>
+            <details class="side-section" data-section="character">
                 <summary>CHARACTER</summary>
                 <div class="action-row">
                     <button id="template-btn" class="primary" title="Start from a character template (T)">TEMPLATES&hellip;</button>
@@ -223,7 +247,7 @@
                 <div id="slot-list"></div>
             </details>
 
-            <details class="side-section" data-section="frames" open>
+            <details class="side-section" data-section="frames">
                 <summary>FRAMES</summary>
                 <div class="row nav-row">
                     <button id="frame-prev" title="Previous frame ([)">&larr;</button>
@@ -246,7 +270,7 @@
                 </div>
             </details>
 
-            <details class="side-section" data-section="transform" open>
+            <details class="side-section" data-section="transform">
                 <summary>TRANSFORM</summary>
                 <div class="tool-grid three">
                     <button id="flip-h" title="Flip horizontal (H)">&#8644; FLIP</button>
@@ -297,7 +321,7 @@
                 <div class="hint">passed to <code>sprite_load</code>, not stored in the PNG</div>
             </details>
 
-            <details class="side-section" data-section="export" open>
+            <details class="side-section" data-section="export">
                 <summary>EXPORT</summary>
                 <div class="action-row">
                     <button id="export-btn" class="primary">EXPORT PNG</button>

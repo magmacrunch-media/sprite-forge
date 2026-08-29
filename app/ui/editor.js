@@ -52,6 +52,8 @@ const SHAPE_TOOLS = new Set(['line', 'rect', 'ellipse']);
 const ANIM_SCALES = [1, 2, 4, 8];
 const SECTION_KEY = 'sprite-forge-sections';
 const VIEW_KEY = 'sprite-forge-view';
+// Breathing room so a fitted sprite is not flush against the stage's edges.
+const FIT_MARGIN = 16;
 const SIDEBAR_MIN = 200, SIDEBAR_MAX = 420;
 const TOOL_META = {
   pencil: ['Pencil', 'B'], erase: ['Erase', 'E'], fill: ['Fill', 'G'], line: ['Line', 'L'],
@@ -66,7 +68,10 @@ let palette = [...DEFAULT_COLORS];
 let selectedColor = palette[0], selectedSwatch = 0;
 let tool = 'pencil';
 let zoom = 16;
-let mirrorX = false, onionSkin = false, gridOn = true;
+// The sprite size the zoom was last fitted for, so a fit happens on open and
+// on resize but not on every repaint. null until the stage has a height.
+let fittedFor = null;
+let mirrorX = false, onionSkin = false, gridOn = true, dockOn = true;
 let undoStack = [], redoStack = [], painting = false, pendingSnap = null;
 
 // Every change ever made, counted. This is the dirty signal rather than the
@@ -104,6 +109,9 @@ const zoomLabel = document.getElementById('zoom-label');
 const frameLabel = document.getElementById('frame-label');
 const toolReadout = document.getElementById('tool-readout');
 const canvasDims = document.getElementById('canvas-dims');
+const canvasStage = document.getElementById('canvas-stage');
+const dock = document.getElementById('dock');
+const dockToggle = document.getElementById('dock-toggle');
 const dimStat = document.getElementById('dimStat');
 const frameStat = document.getElementById('frameStat');
 const sidebar = document.getElementById('sidebar');
@@ -207,6 +215,19 @@ function redo() {
 // ── Canvas rendering ────────────────────────────────────
 
 function sizeCanvas() {
+  // Shrink to fit the first time a given sprite size is drawn, and only ever
+  // downward. Opening a 128x128 project at the default 16x asked for a 2048px
+  // canvas in a 900px stage; growing to fit instead would fight anyone who has
+  // zoomed in on purpose, and zooming in past the window is how you draw a
+  // pixel. setZoom leaves the size alone, so manual zoom survives.
+  const size = `${frameW}x${frameH}`;
+  if (size !== fittedFor) {
+    const best = bestFitZoom();
+    if (best !== null) {
+      if (best < zoom) { zoom = best; zoomLabel.innerHTML = `${zoom}&times;`; }
+      fittedFor = size;
+    }
+  }
   canvas.width = frameW * zoom;
   canvas.height = frameH * zoom;
   canvasDims.innerHTML = `${frameW} &times; ${frameH}`;
@@ -607,9 +628,12 @@ function setMirror(v) { mirrorX = v; mirrorToggle.classList.toggle('active', v);
 function setOnion(v) { onionSkin = v; onionToggle.classList.toggle('active', v); render(); saveViewPrefs(); }
 function setGrid(v) { gridOn = v; gridToggle.classList.toggle('active', v); render(); saveViewPrefs(); }
 
+function setDock(v) { dockOn = v; dock.hidden = !v; dockToggle.classList.toggle('active', v); saveViewPrefs(); }
+
 mirrorToggle.addEventListener('click', () => setMirror(!mirrorX));
 onionToggle.addEventListener('click', () => setOnion(!onionSkin));
 gridToggle.addEventListener('click', () => setGrid(!gridOn));
+dockToggle.addEventListener('click', () => setDock(!dockOn));
 
 // ── Frame size ──────────────────────────────────────────
 
@@ -700,6 +724,26 @@ function setZoom(z) {
   zoomLabel.innerHTML = `${zoom}&times;`;
   sizeCanvas(); render(); saveViewPrefs();
 }
+
+/**
+ * The biggest step that fits the sprite in the stage, or null if the stage has
+ * not been laid out yet — at first paint it has no height, and a fit computed
+ * against zero would pin every sprite to 2x.
+ */
+function bestFitZoom() {
+  const availW = canvasStage.clientWidth - FIT_MARGIN;
+  const availH = canvasStage.clientHeight - FIT_MARGIN;
+  if (availW <= 0 || availH <= 0) return null;
+  return [...ZOOM_STEPS].reverse()
+    .find(s => frameW * s <= availW && frameH * s <= availH) ?? ZOOM_STEPS[0];
+}
+
+function fitToWindow() {
+  const best = bestFitZoom();
+  if (best !== null) setZoom(best);
+}
+
+document.getElementById('zoom-fit').addEventListener('click', fitToWindow);
 
 // ── Export ──────────────────────────────────────────────
 
@@ -1020,6 +1064,8 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'm') setMirror(!mirrorX);
   else if (e.key === 'n') setOnion(!onionSkin);
   else if (e.key === 'd') setGrid(!gridOn);
+  else if (e.key === 'f') fitToWindow();
+  else if (e.key === 'p') setDock(!dockOn);
   else if (e.key === 'h') document.getElementById('flip-h').click();
   else if (e.key === 'v') document.getElementById('flip-v').click();
   else if (e.key === 'r') document.getElementById('rot-90').click();
@@ -1167,6 +1213,12 @@ function loadSectionPrefs() {
   if (!prefs) return;
   for (const d of sections)
     if (d.dataset.section in prefs) d.open = !!prefs[d.dataset.section];
+  // A file written before the sidebar was an accordion can have every section
+  // open, which is the state this replaced. Keep the first and close the rest —
+  // skipping TARGETS when it is hidden, or the web build would restore a
+  // desktop session by opening the one section it does not show and closing
+  // everything it does.
+  closeOthers(sections.find(d => d.open && !d.hidden));
 }
 
 function saveSectionPrefs() {
@@ -1175,12 +1227,35 @@ function saveSectionPrefs() {
   writePrefs(SECTION_KEY, prefs);
 }
 
-sections.forEach(d => d.addEventListener('toggle', saveSectionPrefs));
+/**
+ * One section open at a time.
+ *
+ * The sections total about 1400px and the sidebar column is 600-960px, so
+ * "all of them open" was never a state that fit on a screen — it just meant
+ * everything below COLOR was reached by scrolling and easy to forget was
+ * there. Closing the others costs nothing that the summaries do not still
+ * show, and every tool has a single-key shortcut regardless of whether TOOLS
+ * is open.
+ */
+let switching = false;
+
+function closeOthers(keep) {
+  if (!keep) return;
+  switching = true;
+  for (const d of sections) if (d !== keep && d.open) d.open = false;
+  switching = false;
+}
+
+sections.forEach(d => d.addEventListener('toggle', () => {
+  if (switching) return;
+  if (d.open) closeOthers(d);
+  saveSectionPrefs();
+}));
 
 // ── View preferences ────────────────────────────────────
 
 function saveViewPrefs() {
-  writePrefs(VIEW_KEY, { zoom, gridOn, mirrorX, onionSkin, sidebarW: sidebar.offsetWidth });
+  writePrefs(VIEW_KEY, { zoom, gridOn, mirrorX, onionSkin, dockOn, sidebarW: sidebar.offsetWidth });
 }
 
 function loadViewPrefs() {
@@ -1190,11 +1265,14 @@ function loadViewPrefs() {
   if (typeof p.gridOn === 'boolean') gridOn = p.gridOn;
   if (typeof p.mirrorX === 'boolean') mirrorX = p.mirrorX;
   if (typeof p.onionSkin === 'boolean') onionSkin = p.onionSkin;
+  if (typeof p.dockOn === 'boolean') dockOn = p.dockOn;
   if (p.sidebarW) setSidebarWidth(p.sidebarW);
   zoomLabel.innerHTML = `${zoom}&times;`;
   gridToggle.classList.toggle('active', gridOn);
   mirrorToggle.classList.toggle('active', mirrorX);
   onionToggle.classList.toggle('active', onionSkin);
+  dock.hidden = !dockOn;
+  dockToggle.classList.toggle('active', dockOn);
 }
 
 // ── Sidebar resizing ────────────────────────────────────

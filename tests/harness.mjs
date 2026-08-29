@@ -20,7 +20,13 @@ const ORDER = ['color.js', 'draw.js', 'sheet.js', 'templates.js', 'project.js',
 // flat RGBA buffer and a 2D context that blits into it. They are not a canvas
 // implementation and are not trying to be — they exist so the module carrying
 // the four-repo sheet contract can be tested without a browser.
-class ImageData {
+//
+// They are exported as well as used here, because the suites are no longer the
+// only caller: scripts/import-moonlight-drift.mjs reads real PNGs through
+// sheetToFrames and needs the same context to hand it. One shim rather than
+// two, so the script cannot come to disagree with the tests about what a
+// getImageData returns.
+export class ImageData {
     constructor(w, h) {
         this.width = w; this.height = h;
         this.data = new Uint8ClampedArray(w * h * 4);
@@ -56,14 +62,20 @@ class Ctx {
     }
 }
 
+/** A stub canvas, sized. `getContext('2d')` returns the same Ctx every time,
+ *  which is what a real canvas does and what putImageData-then-read relies on. */
+export function canvas(w = 0, h = 0) {
+    const c = { width: w, height: h };
+    const ctx = new Ctx(c);
+    c.getContext = () => ctx;
+    return c;
+}
+
 function fakeDocument() {
     return {
         createElement(tag) {
             if (tag !== 'canvas') throw new Error(`test shim only makes canvases, not <${tag}>`);
-            const c = { width: 0, height: 0 };
-            const ctx = new Ctx(c);
-            c.getContext = () => ctx;
-            return c;
+            return canvas();
         },
     };
 }
