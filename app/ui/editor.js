@@ -498,16 +498,20 @@ function renderPalette() {
     const ci = document.createElement('input');
     ci.type = 'color'; ci.value = palette[i];
     ci.addEventListener('input', (e) => {
-      e.stopPropagation(); palette[idx] = e.target.value;
+      palette[idx] = e.target.value;
       div.style.backgroundColor = e.target.value;
       if (idx === selectedSwatch) { selectedColor = e.target.value; updateColorChip(); }
     });
-    ci.addEventListener('click', (e) => e.stopPropagation());
+    // Click chooses the colour to draw with; double-click opens the picker to
+    // change what the swatch is. They were the same gesture and the picker won
+    // every time, so the palette could be edited but not used.
+    div.title = 'Click to draw with this colour — double-click to change it';
     div.addEventListener('click', () => {
       selectedSwatch = idx; selectedColor = palette[idx];
       if (!['pencil', 'fill', 'line', 'rect', 'ellipse'].includes(tool)) { tool = 'pencil'; updateToolActive(); }
       updatePaletteActive(); updateColorChip();
     });
+    div.addEventListener('dblclick', () => ci.click());
     div.style.backgroundColor = palette[i];
     div.appendChild(ci); paletteEl.appendChild(div);
   }

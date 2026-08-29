@@ -291,13 +291,20 @@ kbd {
 .swatch:hover { border-color: var(--dim); }
 .swatch.active { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan); }
 
+/* The picker for a swatch, invisible and lying over it.
+   It must not be the click target. Covering the whole swatch meant every
+   click landed here and opened the OS colour picker, so a swatch could be
+   edited and never actually chosen — selecting a colour to draw with was
+   impossible. It stays in the layout rather than display:none because
+   opening the picker means click()ing this element, and a display:none
+   input cannot be clicked. */
 .swatch input[type="color"] {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     opacity: 0;
-    cursor: pointer;
+    pointer-events: none;
 }
 
 .color-chip-row {

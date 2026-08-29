@@ -151,7 +151,7 @@
                         <select id="target-kind"></select>
                     </label>
                 </div>
-                <div class="tool-grid">
+                <div class="action-row">
                     <button id="target-add">ADD FOLDER&hellip;</button>
                 </div>
                 <div class="hint">the sheet lands in the engine's own directory
@@ -192,17 +192,19 @@
                     <button id="theme-save" title="Save the current swatches as a theme">SAVE</button>
                     <button id="theme-delete" title="Delete the selected theme of yours">&times;</button>
                 </div>
-                <div class="hint">a theme replaces the swatches you draw
-                    <em>from</em>; pixels already placed keep their colour. one
-                    undo step. yours are saved on this machine.</div>
+                <div class="hint">a theme offers to redraw every sprite in
+                    it, each colour moving to the nearest one it has; decline
+                    and it only replaces the swatches you draw <em>from</em>.
+                    yours are saved on this machine.</div>
 
                 <div class="sub-label">replace everywhere</div>
                 <div class="row">
                     <input type="color" id="replace-color" value="#ffffff" title="New color">
-                    <button id="replace-btn" title="Replace the selected color across every frame">REPLACE</button>
+                    <button id="replace-btn" title="Replace the selected color across every frame of every sprite">REPLACE</button>
                 </div>
                 <div class="hint">swaps the selected swatch for this color in
-                    every frame; one undo step.</div>
+                    every frame of every sprite &mdash; the palette is the
+                    project's. one undo step.</div>
             </details>
 
             <details class="side-section" data-section="character" open>
