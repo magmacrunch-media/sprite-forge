@@ -3,10 +3,10 @@
 //
 //   node scripts/vendor-ops-themes.mjs [path-to-magmacrunch-ops]
 //
-// The themes are authored in magmacrunch-ops/dashboard/static/theme.js, where
-// they are CSS variable sets for the ops dashboard and the website sections.
-// A sprite palette is the same thing with the variable names thrown away, so
-// they come across as flat colour lists.
+// The themes are authored in magmacrunch-ops, where they are CSS variable sets
+// for the ops dashboard and the website sections. A sprite palette is the same
+// thing with the variable names thrown away, so they come across as flat
+// colour lists.
 //
 // Vendored rather than fetched, for the reason the shell is vendored: this app
 // ships as a desktop binary with no network and no build step, so anything it
@@ -14,10 +14,15 @@
 // change; the generated file is data only, and the logic that reads it lives in
 // core/palettes.js and is not touched here.
 //
-// theme.js is a plain array literal in a repo we own, so it is read by
-// evaluating that literal. It is not parsed as JSON because it is JavaScript —
-// unquoted keys, single quotes — and not imported because the file is a browser
-// IIFE that expects a DOM.
+// Two layouts, because the split is happening over there and not here. The
+// themes are moving out to themes/palettes.json; until that lands they are
+// still inline in dashboard/static/theme.js, as a plain array literal inside a
+// browser IIFE — which is why that path is read by slicing the literal out and
+// evaluating it, JSON.parse having no chance against unquoted keys and single
+// quotes. The .json needs none of that. This prefers the new path and falls
+// back, so the same command works either side of the move, and whichever it
+// used is named in the file it writes. Delete the fallback once ops has
+// split — it is the only thing keeping the eval alive.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -26,16 +31,47 @@ import { dirname, join, resolve } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
 const OPS = resolve(process.argv[2] || join(REPO, '..', 'magmacrunch-ops'));
-const SOURCE = join(OPS, 'dashboard', 'static', 'theme.js');
+const SPLIT = join(OPS, 'themes', 'palettes.json');
+const INLINE = join(OPS, 'dashboard', 'static', 'theme.js');
 const OUT = join(REPO, 'app', 'core', 'ops-themes.js');
 
-const src = readFileSync(SOURCE, 'utf8');
-const at = src.indexOf('var DEFAULT_THEMES');
-if (at < 0) throw new Error(`${SOURCE}: no DEFAULT_THEMES array`);
-const literal = src.slice(src.indexOf('[', at), src.indexOf('];', at) + 1);
+/** The file, or null if it is simply not there. Anything else still throws. */
+function readIfPresent(path) {
+    try { return readFileSync(path, 'utf8'); }
+    catch (e) {
+        if (e.code === 'ENOENT') return null;
+        throw new Error(`${path}: ${e.message}`);
+    }
+}
 
-// eslint-disable-next-line no-eval
-const themes = eval(literal);
+/** The themes, and the path they came from, from whichever layout is present. */
+function load() {
+    const json = readIfPresent(SPLIT);
+    if (json !== null) {
+        try { return { themes: JSON.parse(json), from: SPLIT, rel: 'themes/palettes.json' }; }
+        catch (e) { throw new Error(`${SPLIT}: ${e.message}`); }
+    }
+
+    const js = readIfPresent(INLINE);
+    if (js === null)
+        throw new Error(`no themes in ${OPS}: looked for themes/palettes.json and `
+            + 'dashboard/static/theme.js');
+
+    const at = js.indexOf('var DEFAULT_THEMES');
+    if (at < 0) throw new Error(`${INLINE}: no DEFAULT_THEMES array`);
+    const literal = js.slice(js.indexOf('[', at), js.indexOf('];', at) + 1);
+    // eslint-disable-next-line no-eval
+    return { themes: eval(literal), from: INLINE, rel: 'dashboard/static/theme.js' };
+}
+
+const { themes, from, rel } = load();
+
+// An empty vendoring is the quiet failure this script can cause: it would
+// write a valid ops-themes.js with no themes in it, and the editor would come
+// up with an empty palette list rather than an error.
+if (!Array.isArray(themes) || !themes.length) {
+    throw new Error(`${from}: expected a non-empty array of themes`);
+}
 
 const slug = (name) => name.toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -83,7 +119,7 @@ const out = `// ops-themes.js — colour themes vendored from MAGMA//OPS.
 //
 //     node scripts/vendor-ops-themes.mjs [path-to-magmacrunch-ops]
 //
-// Source: magmacrunch-ops/dashboard/static/theme.js, where these are CSS
+// Source: magmacrunch-ops/${rel}, where these are CSS
 // variable sets for the ops dashboard and the website sections. Here the
 // variable names are dropped and what is left is a list of colours to draw
 // with. Themes with an empty palette are not carried across, and a hex that
@@ -98,4 +134,5 @@ ${rows}
 `;
 
 writeFileSync(OUT, out, 'utf8');
-console.log(`${kept.length} themes -> app/core/ops-themes.js (${dropped} without colours skipped)`);
+console.log(`${kept.length} themes from ${rel} -> app/core/ops-themes.js `
+    + `(${dropped} without colours skipped)`);
