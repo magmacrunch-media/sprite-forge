@@ -28,11 +28,16 @@
     // this file has loaded, and a captured reference would miss it.
     const fs = () => window.SpriteForge.fs;
 
+    /** Re-read for the same reason fs is: a suite sets the tier after
+     *  this file has loaded. The POLICY is core/tier.js's, not this
+     *  file's — this only asks. */
+    const can = (cap) => window.SpriteForge.tier.current.has(cap);
+
     const baseName = p => (p || '').split(/[\\/]/).pop() || 'untitled.forge';
     const isDirty = () => editor.revision() !== savedRevision;
 
     function refresh() {
-        if (!fs()) return;
+        if (!can('projects')) return;
         const name = currentPath ? baseName(currentPath) : 'untitled';
         const mark = isDirty() ? ' •' : '';
         if (docName) {
@@ -335,7 +340,7 @@
 
     document.addEventListener('keydown', (e) => {
         // Desktop only: without a filesystem there is nothing to save to.
-        if (!fs()) return;
+        if (!can('projects')) return;
         const action = KEYS.resolve(e, NAMES);
         if (!action) return;
         if (KB.prevents(action)) e.preventDefault();
@@ -347,6 +352,21 @@
     // canvas work already happening on every stroke.
     setInterval(refresh, 400);
     refresh();
+
+    /* The LITE build has no Rust close guard, so it needs the browser's.
+       The desktop build has magma_kit::dirty::confirm_close, driven by the
+       setDirty push in refresh() above, and must NOT also do this —
+       beforeunload in a WebView produces a second, OS-drawn prompt.
+
+       Gated on the filesystem and not on the tier: the question is
+       whether a Rust guard exists, which is not a product decision. */
+    if (!fs()) {
+        window.addEventListener('beforeunload', function (e) {
+            if (!isDirty()) return;
+            e.preventDefault();
+            e.returnValue = '';
+        });
+    }
 
     // The four actions, under the names the buttons, the File menu and the
     // tests all reach them by. They were _-prefixed while the tests were the

@@ -1,6 +1,6 @@
 [package]
 name = "sprite-forge"
-version = "0.2.0"
+version = "0.3.0"
 description = "SPRITE//FORGE — pixel-art sprite and animation editor"
 authors = ["magmacrunch media"]
 license = "PolyForm-Noncommercial-1.0.0"

@@ -60,5 +60,15 @@
         return null;
     }
 
-    window.MagmaKit.menu.create(document.getElementById('menubar'), { actions, state });
+    /* Mac labels first, before the bar reads any of them. A no-op on Windows,
+       and outside the tier gate because the Reference card carries the same
+       chords in both tiers — see ui/platform.js. */
+    window.SpriteForge.platform.applyLabels();
+
+    /* FULL only (core/tier.js). CSS already hides the bar in a browser, but
+       hidden is not the same as absent: nothing below is wired, so 'app:quit'
+       cannot dispatch and the fs().quit() above is genuinely unreachable
+       rather than merely unclickable. */
+    if (window.SpriteForge.tier.current.has('menubar'))
+        window.MagmaKit.menu.create(document.getElementById('menubar'), { actions, state });
 }());

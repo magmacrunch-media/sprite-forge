@@ -25,6 +25,7 @@ app/            everything the shipped app loads, and nothing else
 desktop/        the Tauri shell
 tests/          node tests for core/, plus project-ui's save-error messages
 scripts/        development-time tools; never loaded by the app
+.github/        the two-platform release build
 ```
 
 `scripts/` runs in Node against `core/`, which is what `core/` having no DOM buys.
@@ -45,10 +46,16 @@ added beside `app/` stays out of the binary; anything added inside it ships.
 the same `core/` serves the desktop build, the web demo, and the export
 targets, none of which share a DOM.
 
-Load order matters and is fixed in `ui/index.html` — `color` → `draw` →
-`sheet` → `templates` → `editor`. `sheet.js` and `project.js` both read
+Load order matters and is fixed in `ui/index.html` — `tier` → `color` → `draw`
+→ `sheet` → `templates` → `editor`. `tier.js` is first in `core/` because it
+reads `SpriteForge.fs`, which `ui/bridge.js` decides in `<head>`, and it holds
+that answer for everything below. `sheet.js` and `project.js` both read
 `SpriteForge.color` at IIFE time, and `editor.js` binds every core export at
 its top.
+
+`platform.js` is first in `ui/`, because `menu.js` calls its `applyLabels()`
+before handing the menu markup to the kit — the other way round and a Mac build
+shows Ctrl chords that were already read.
 
 After `editor.js` come `sprites-ui.js`, `project-ui.js`, `targets-ui.js`,
 `help-ui.js` and `menu.js`, in that order. sprites-ui seeds itself from the blank sprite the
@@ -83,6 +90,40 @@ the website chrome before the body paints rather than flashing it on every
 launch. That mark cannot come from an inline script — the desktop CSP is
 `default-src 'self'` with no `script-src`, so inline is blocked. It touches no
 DOM tree and no core export, so running first costs nothing.
+
+## Two tiers, one codebase
+
+`app/` is both the page on magmacrunch.com and the desktop bundle. Which one a
+visitor gets is decided at load, by three gates stacked on purpose:
+
+1. `kit/bridge-core.js` looks for `window.__TAURI_INTERNALS__` — never a user
+   agent — and, finding it, adds `desktop` to `<html>` and exposes
+   `MagmaKit.tauri`.
+2. `ui/bridge.js` turns that into `SpriteForge.fs`. In a browser it returns
+   early and `fs` stays undefined. **Its absence IS the feature switch.**
+3. `core/tier.js` turns that one boolean into a capability table, so the POLICY
+   lives in one place instead of being an accident of which call site happened
+   to check for a filesystem first.
+
+Three capabilities are `full`: `projects`, `targets`, `menubar`. Everything
+absent from the table is in both tiers — it lists exceptions, so adding a
+feature does not mean remembering to add a row.
+
+**A capability only earns a `full` when it is genuinely new work needing a
+filesystem or a window**, never as a way to make the desktop build look better
+by taking something away from the web one. `tests/tier.test.mjs` asserts that
+decision rather than the mechanism, including the exact set of three, so a
+fourth is a deliberate edit to a test.
+
+The CSS gate stays alongside the tier gate, and both are wanted: `style.css`
+hides `.menubar` and `.doc-name` until `bridge.js` sets `html.desktop`, which
+stops a flash, while the tier stops the code running. That second half is not
+cosmetic — `menu.js`'s `app:quit` calls `fs().quit()`, which used to be
+unreachable only because CSS hid the button. It is now unreachable because in
+LITE the bar is never wired at all.
+
+`ui/platform.js` is deliberately outside the gate. It relabels Ctrl chords as
+Mac glyphs, and a Mac in a browser is the ordinary case for the Reference card.
 
 ## The workspace is height-constrained, and stays that way
 
@@ -125,9 +166,9 @@ and the GameMaker importer. Canonical spec lives in `adenosine/packages/rpg/API.
 the `sprites.ts` section; `adenosine/AGENTS.md` marks it "do not change
 unilaterally". Changing `core/sheet.js`'s format is a four-repo change.
 
-## The version lives in five places
+## The version lives in six places
 
-No build step means no single source for it, so a bump is five edits:
+No build step means no single source for it, so a bump is six edits:
 
 ```
 package.json                        the repo
@@ -135,6 +176,7 @@ desktop/package.json                the shell's package
 desktop/src-tauri/tauri.conf.json   the installer and the Apps list
 desktop/src-tauri/Cargo.toml        the crate
 app/ui/index.html                   the footer, which only the web build shows
+desktop/src-tauri/Cargo.lock        generated, but tracked
 ```
 
 The footer is the one that rots, because the desktop build hides it — it sat at
@@ -148,6 +190,12 @@ You no longer have to remember to check it. `tests/version.test.mjs` holds
 fails `npm test`. The two package.json files are deliberately NOT asserted —
 they are build tooling, nothing publishes them, and wiring them in would be
 fixing a consistency nobody depends on.
+
+`Cargo.lock` is the sixth and is not asserted either, because cargo writes it.
+It is still tracked, so leaving it stale means the first `cargo build` in CI
+dirties the tree on a fresh clone. Bump it with the rest, and prove it with
+`cargo check --locked`, which refuses to rewrite the lockfile and so fails
+rather than papering over a mismatch.
 
 ## The shared kit
 
@@ -231,6 +279,63 @@ filesystem assumption (`../../fonts/`, true only two levels below the website
 root) and its own header invites a bundled desktop build to replace it. Nothing
 else in `shell/` is path-dependent; keep the rest byte-identical so an upstream
 fix can be re-vendored without a merge.
+
+## The website copy
+
+`scripts/sync-web.mjs` is the ONLY writer of `website/ware/sprite-forge/`. It
+is a byte copy with two transforms, and it has no build step to hide behind:
+
+- **The page moves up one level.** `app/ui/index.html` sits two below `app/`;
+  `ware/sprite-forge/index.html` sits one below `ware/`. So `../kit/` and
+  `../core/` are rewritten to `kit/` and `core/`, and `../shell/` and
+  `../utilities/` are left **alone** — at the new depth they already point at
+  the website's own `ware/shell/` and `ware/utilities/`. That is exactly why
+  `shell/fonts.css` is the one file not sent (see below).
+- **The stamps are the website's rule.** `?v=` is the first 8 hex of the file's
+  SHA-256 over content with CRLF normalised to LF, and
+  `website/scripts/check-cache-busters.mjs` fails that repo's CI if a stamp and
+  its file disagree. `digest()` is that rule verbatim; do not improve it
+  independently.
+- **Bytes go through untouched.** Both repos leave line endings to
+  `core.autocrlf` — see `.gitattributes`, which names this script. Normalising
+  on write would show every synced file as modified while `git diff` showed
+  nothing, burying the one file that actually changed.
+- **It prunes what it did not write**, which is how the old pre-split monolith
+  (`js/app.js`, `js/templates.js`, `css/style.css`) left. Run `npm run
+  check:web` first; it lists every write and delete without doing any of them.
+
+`plan()` refuses to run if `index.html` loads something the manifest does not
+copy, so adding a `ui/` file and forgetting the sync fails here rather than as
+a MISSING asset in the website's CI, one repo away from the cause.
+
+`check:web` stays out of `npm run check` for the same reason `check:kit` does:
+it needs a sibling checkout that may not be there.
+
+## Releases
+
+`.github/workflows/release.yml` builds on `macos-latest` and `windows-latest`
+and attaches the bundles to a GitHub release on a `v*` tag; `workflow_dispatch`
+builds the same thing without publishing.
+
+It exists because a macOS bundle **cannot be cross-compiled** — Tauri links
+against the system WebKit — and a GitHub runner is the only route to one from a
+Windows desk. Once macOS has to come through there, Windows comes too, so both
+halves of a release are built the same way. macOS is `--target
+universal-apple-darwin`: one `.dmg` that cannot be the wrong download.
+
+The workflow checks out `magmacrunchmedia/magma-kit` as a named sibling,
+because `desktop/src-tauri/Cargo.toml` declares
+`magma-kit = { path = "../../../magma-kit/crate" }` and cargo cannot resolve it
+otherwise. A pre-flight step fails with a sentence rather than inside cargo's
+resolver.
+
+Nothing is signed or notarized. That is a deliberate cost, documented in the
+README next to the SmartScreen and Gatekeeper workarounds; adding it later
+means Apple Developer credentials in repo secrets and nothing else.
+
+`tauri.conf.json` still lists `appimage` and `deb` alongside `msi`, `nsis` and
+`dmg`. There is no Linux runner, and Tauri silently skips targets that do not
+apply to the host, so they cost nothing and are left as the standing intent.
 
 ## Git
 

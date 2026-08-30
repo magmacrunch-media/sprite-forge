@@ -353,7 +353,7 @@
          through the HELP menu instead. The version string lives here and
          nowhere else in this file; the Credits modal reads it back out. -->
     <footer>
-        <button class="footer-text" id="credits-link">SPRITE//FORGE <span id="app-version">v0.2.0</span> &mdash; <span>MAGMACRUNCH MEDIA</span></button>
+        <button class="footer-text" id="credits-link">SPRITE//FORGE <span id="app-version">v0.3.0</span> &mdash; <span>MAGMACRUNCH MEDIA</span></button>
     </footer>
 
     <dialog id="template-modal">
@@ -533,6 +533,10 @@
          core/ too — sheet.js reads SpriteForge.color at IIFE time. The ?v=
          cache-buster stamps are added by the website sync, not kept here, so
          local edits are never served stale. -->
+    <!-- first: bridge.js in <head> has already decided whether there is a
+         filesystem, and this turns that one boolean into the capability table
+         the ui/ files below ask. -->
+    <script src="../core/tier.js"></script>
     <script src="../core/color.js"></script>
     <script src="../core/draw.js"></script>
     <script src="../core/sheet.js"></script>
@@ -549,6 +553,9 @@
     <!-- the one keyboard table; editor.js, project-ui.js and help-ui.js all
          resolve through it -->
     <script src="../core/keybindings.js"></script>
+    <!-- before menu.js, which reads the hints it rewrites. On Windows this
+         file does nothing at all. -->
+    <script src="platform.js"></script>
     <!-- before editor.js, which encodes the sheet it exports -->
     <script src="png.js"></script>
     <script src="editor.js"></script>

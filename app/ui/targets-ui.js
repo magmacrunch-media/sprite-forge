@@ -29,6 +29,9 @@
     // be installed after this file has loaded, and a captured reference would
     // miss it.
     const fs = () => window.SpriteForge.fs;
+
+    /** Re-read for the same reason fs is. The POLICY is core/tier.js's. */
+    const can = (cap) => window.SpriteForge.tier.current.has(cap);
     const projectUI = () => window.SpriteForge.projectUI;
 
     let store = S.blank();
@@ -77,7 +80,10 @@
     // ── drawing ─────────────────────────────────────────────
 
     function render() {
-        if (panel) panel.hidden = !fs();
+        if (panel) panel.hidden = !can('targets');
+        // Nothing below is worth doing into a panel nobody can open, and
+        // every row it would draw names a path only the desktop has.
+        if (!can('targets')) return;
         if (!list) return;
 
         if (!store) {
@@ -337,7 +343,9 @@
     if (btnAdd) btnAdd.addEventListener('click', addTarget);
 
     render();
-    loadStore();
+    // A browser tab has no game repo to write into, so there is no
+    // targets.json to go looking for either.
+    if (can('targets')) loadStore();
 
     window.SpriteForge.targetsUI = {
         render,

@@ -1,0 +1,131 @@
+# Build the desktop app on both platforms and attach it to a release.
+#
+# WHY THIS EXISTS AT ALL: a macOS bundle cannot be cross-compiled from Windows.
+# Tauri links against the system WebKit and produces a real .app, so it has to
+# be built ON macOS. A GitHub runner is the only route from a Windows desktop,
+# and once Mac has to come through here it is worth bringing Windows along —
+# otherwise the two halves of a release come from different places and only one
+# of them is reproducible.
+#
+# THE THING THAT WILL BREAK IF YOU CHANGE IT: this repo does NOT build alone.
+# desktop/src-tauri/Cargo.toml declares
+#
+#     magma-kit = { path = "../../../magma-kit/crate" }
+#
+# a sibling path dependency, so magma-kit must sit next to this checkout or
+# cargo cannot resolve it. Both repos are checked out into named directories
+# below to put them in that relationship deliberately, rather than relying on
+# the default checkout layout. From sprite-forge/desktop/src-tauri, three levels
+# up is the workspace root, and magma-kit/crate is beside it.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  # Build without publishing, to prove a change works before it is tagged.
+  workflow_dispatch:
+
+# The release job needs to create a release and upload to it.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      # Never cancel the other platform because one failed — knowing whether a
+      # break is on both or only one is most of the diagnosis.
+      fail-fast: false
+      matrix:
+        include:
+          # A single .dmg that runs natively on Apple Silicon AND Intel. One
+          # download that cannot be the wrong one, which is the whole point of
+          # handing it to another machine.
+          - os: macos-latest
+            label: macos
+            args: --target universal-apple-darwin
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - os: windows-latest
+            label: windows
+            args: ''
+            rust-targets: ''
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out sprite-forge
+        uses: actions/checkout@v4
+        with:
+          path: sprite-forge
+
+      - name: Check out magma-kit beside it
+        uses: actions/checkout@v4
+        with:
+          repository: magmacrunchmedia/magma-kit
+          path: magma-kit
+
+      # Fail here, with a sentence, rather than inside cargo's resolver.
+      - name: Confirm the sibling path dependency resolves
+        shell: bash
+        run: |
+          test -f magma-kit/crate/Cargo.toml \
+            || { echo "magma-kit/crate is missing — the path dep cannot resolve"; exit 1; }
+          echo "magma-kit $(grep -m1 '^version' magma-kit/crate/Cargo.toml) is in place"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sprite-forge/desktop/src-tauri
+
+      - name: Install dependencies
+        working-directory: sprite-forge
+        run: |
+          npm ci
+          npm ci --prefix desktop
+
+      # The suite is the gate. A release should not ship a red build, and this
+      # also catches a vendored kit file edited in place, since kit-integrity
+      # is hermetic and needs no kit checkout.
+      - name: Check
+        working-directory: sprite-forge
+        run: npm run check
+
+      # Am I behind magma-kit? Only answerable here because the sibling is
+      # present, which is exactly why it is not part of `npm run check`.
+      - name: Check the vendored kit is current
+        working-directory: sprite-forge
+        run: npm run check:kit
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: sprite-forge/desktop
+          # On workflow_dispatch there is no tag, so tagName is empty and the
+          # action builds without publishing. Artifacts are uploaded below.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: SPRITE//FORGE __VERSION__
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # Always kept, tag or not: on a dispatch run this is the only output, and
+      # on a tagged run it is what you compare against the published asset.
+      - name: Keep the bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: sprite-forge-${{ matrix.label }}
+          if-no-files-found: error
+          path: |
+            sprite-forge/desktop/src-tauri/target/release/bundle/**/*.dmg
+            sprite-forge/desktop/src-tauri/target/release/bundle/**/*.msi
+            sprite-forge/desktop/src-tauri/target/release/bundle/**/*setup.exe
+            sprite-forge/desktop/src-tauri/target/universal-apple-darwin/release/bundle/**/*.dmg

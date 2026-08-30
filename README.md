@@ -12,8 +12,9 @@ four engines read.
 
 ## Status
 
-Under construction. The editor works and installs as a desktop app; what is
-missing is the multi-sprite and export-target work above the drawing surface.
+The editor works, installs as a desktop app on Windows and macOS, and runs
+reduced in a browser at
+[magmacrunch.com/ware/sprite-forge](https://magmacrunch.com/ware/sprite-forge/).
 
 - [x] Editor: tools, palette, shade ramps, frames, onion skin, animation preview
 - [x] Character templates with named, recolourable slots
@@ -26,7 +27,60 @@ missing is the multi-sprite and export-target work above the drawing surface.
 - [x] Windows installers - per-user NSIS (1.2 MB) and MSI (1.8 MB)
 - [x] Multi-sprite projects over one shared palette
 - [x] A targets panel - export lands in a game repo, all four engines
-- [ ] Reduced web build synced to magmacrunch.com
+- [x] Reduced web build synced to magmacrunch.com
+- [x] macOS build — one universal `.dmg`, Apple Silicon and Intel
+
+## Two builds, one codebase
+
+The same `app/` directory is both the page on magmacrunch.com and the desktop
+bundle. Which half you get is decided at load: with no Tauri behind it there is
+no filesystem, and [`app/core/tier.js`](app/core/tier.js) turns that one
+boolean into the table below.
+
+| | LITE (web) | FULL (desktop) |
+|---|---|---|
+| Tools, palette, shade ramps, REPLACE | yes | yes |
+| Frames, onion skin, animation preview | yes | yes |
+| Character templates with named slots | yes | yes |
+| Multi-sprite projects over one palette | yes | yes |
+| Colour themes | yes | yes |
+| Transform, origin, canvas resize, undo | yes | yes |
+| PNG sheet import and export | yes | yes |
+| `.forge` project files — New / Open / Save / Save As | — | yes |
+| TARGETS — export straight into a game repo | — | yes |
+| The menu bar | — | yes |
+
+The three desktop-only rows each need a filesystem or a window. That is the
+only reason a row is allowed there: LITE is a strict upgrade on what the web
+tool could already do, never the desktop build made to look better by taking
+something away from it.
+
+## Installing it
+
+Grab an installer from
+[releases](https://github.com/magmacrunchmedia/sprite-forge/releases) — Windows
+x64, and one macOS `.dmg` that runs natively on both Apple Silicon and Intel.
+Every release lists SHA-256 checksums.
+
+The bundles are **not code-signed**, so both systems will object the first time:
+
+- **Windows** — SmartScreen says *"Windows protected your PC"* and hides the
+  button. **More info → Run anyway.**
+- **macOS** — Gatekeeper is blunter, and on Apple Silicon it usually claims the
+  app *"is damaged and can't be opened"*, which is not true and is simply what
+  an unsigned quarantined bundle looks like. Drag it to Applications, then
+  either open **System Settings → Privacy & Security** and click **Open
+  Anyway**, or clear the quarantine flag directly:
+
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/SPRITE FORGE.app"
+  ```
+
+  The quotes matter — the bundle name has a space in it.
+
+Releases are built by GitHub Actions on both platforms — see
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which has to
+check out magma-kit alongside this repo for the same reason you do.
 
 ## Running it
 
@@ -38,6 +92,17 @@ npx serve app -l 3300
 
 Then <http://localhost:3300/ui/>. It is a desktop-sized tool and says so below
 about 900px. Run the tests with `npm test` — no dependencies, plain node.
+
+That is the LITE build. To publish it:
+
+```bash
+npm run check:web
+```
+
+`check:web` reports what a sync would change; `npm run sync-web` does it,
+copying into `../website/ware/sprite-forge/` (pass another path if your
+website checkout is elsewhere). Commit the result in the website repo —
+GitHub Pages serves that tree directly.
 
 ### The desktop build
 
@@ -68,7 +133,13 @@ cd desktop && npm install && npm run dev
 ```
 
 Tauri cannot cross-compile: a `.msi` must be built on Windows and a `.dmg` on a
-Mac.
+Mac. That is the whole reason `.github/workflows/release.yml` exists — a GitHub
+runner is the only route to a Mac bundle from a Windows desk, and once macOS
+has to come through there it is worth building Windows there too, so both
+halves of a release come from the same place.
+
+magma-kit must be checked out as a sibling directory: the Rust crate is a path
+dependency at `../../../magma-kit/crate`, and `npm run check:kit` needs it too.
 
 ## Layout
 
@@ -79,7 +150,8 @@ Mac.
 | `app/shell/`, `app/fonts/` | vendored app shell from magmacrunch.com |
 | `desktop/` | the Tauri shell |
 | `tests/` | node tests for `app/core/` |
-| `scripts/` | re-vendor the magma//ops colour themes |
+| `scripts/` | re-vendor the magma//ops colour themes; sync the LITE build to the website |
+| `.github/` | the two-platform release build |
 
 Everything the shipped app loads lives under `app/`, because that directory is
 Tauri's `frontendDist` and gets embedded whole.

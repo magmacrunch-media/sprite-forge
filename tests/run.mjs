@@ -5,7 +5,7 @@ import { loadCore, scriptOrder, ORDER, KIT_ORDER } from './harness.mjs';
 import { results, test, eq, ok } from './assert.mjs';
 
 const SF = loadCore();
-for (const mod of ['color', 'draw', 'sheet', 'templates', 'project'])
+for (const mod of ['tier', 'color', 'draw', 'sheet', 'templates', 'project'])
     if (!SF[mod]) { console.error(`core/${mod} did not attach to SpriteForge`); process.exit(1); }
 
 // The load order in the page IS the dependency order — sheet.js reads
@@ -31,9 +31,14 @@ test('index.html loads kit/ then core/, before ui/', () => {
 
     const lastCore = srcs.map(s => s.includes('/core/')).lastIndexOf(true);
     ok(srcs.indexOf('editor.js') > lastCore, 'editor.js loads after every core/ module');
+
+    // platform.js rewrites the hints in the menu markup; menu.js hands that
+    // markup to the kit. The wrong way round is a Mac build showing Ctrl.
+    ok(srcs.indexOf('platform.js') < srcs.indexOf('menu.js'),
+        'platform.js relabels before menu.js reads a label');
 });
 
-const suites = ['./project.test.mjs', './color.test.mjs', './draw.test.mjs', './sheet.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs', './project-ui.test.mjs', './sprites-ui.test.mjs', './keybindings.test.mjs', './version.test.mjs', './kit-integrity.test.mjs'];
+const suites = ['./tier.test.mjs', './project.test.mjs', './color.test.mjs', './draw.test.mjs', './sheet.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs', './project-ui.test.mjs', './sprites-ui.test.mjs', './platform.test.mjs', './keybindings.test.mjs', './version.test.mjs', './sync-web.test.mjs', './kit-integrity.test.mjs'];
 // Awaited because project-ui.test.mjs drives async Save calls. The sync suites
 // return undefined and are unaffected; without it the tally below would print
 // before the async one had finished counting.

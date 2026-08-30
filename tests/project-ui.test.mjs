@@ -70,6 +70,12 @@ function mount(opts = {}) {
     if (opts.confirm) sandbox.SpriteForge.fs.confirm = opts.confirm;
     // The web build has no fs at all, and the theme recolour runs there too.
     if (opts.noFs) delete sandbox.SpriteForge.fs;
+
+    // core/ loaded before the fs stub above, so tier.js decided LITE. In
+    // the page bridge.js runs in <head> and it decides FULL; say so here
+    // rather than let the load order of a test stand in for a product
+    // decision and quietly retarget every Save/Open case below.
+    sandbox.SpriteForge.tier.current = sandbox.SpriteForge.tier.create(!opts.noFs);
     if (opts.webConfirm) sandbox.confirm = opts.webConfirm;
 
     loadUI(sandbox, 'project-ui.js');

@@ -14,7 +14,7 @@ import { ImageData, canvas, fakeDocument } from './kit/canvas-shim.mjs';
 
 const APP = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 
-export const ORDER = ['color.js', 'draw.js', 'sheet.js', 'templates.js', 'project.js',
+export const ORDER = ['tier.js', 'color.js', 'draw.js', 'sheet.js', 'templates.js', 'project.js',
     'targets/gamemaker.js', 'targets/engines.js', 'targets/store.js',
     'ops-themes.js', 'palettes.js', 'keybindings.js'];
 
@@ -58,8 +58,13 @@ export function loadCore() { return harness.loadCore(); }
  * a ui/ file whose whole job is deciding what to tell the user when core/
  * refuses something: that decision is logic, it has been wrong before, and it
  * is reachable with a handful of stubs. See project-ui.test.mjs.
+ *
+ * `extra` reaches the kit harness's sandbox globals. platform.js reads
+ * navigator at load and the vm sandbox has none unless a suite hands one in;
+ * this wrapper used to drop the argument, which made that file untestable
+ * rather than merely untested.
  */
-export function coreSandbox() { return harness.coreSandbox(); }
+export function coreSandbox(extra) { return harness.coreSandbox(extra); }
 
 /** Evaluate a ui/ file into a sandbox from coreSandbox(). */
 export function loadUI(sandbox, file) { return harness.loadUI(sandbox, file); }
