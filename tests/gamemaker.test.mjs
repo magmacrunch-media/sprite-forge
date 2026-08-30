@@ -154,9 +154,12 @@ export default function (SF) {
     // ── Against the real project ──────────────────────────────────────────
 
     if (!haveTC) {
-        test('SKIPPED: transatlantic_colleague not checked out beside this repo', () => {
-            throw new Error('no ' + TC + ' — the real-project tests did not run');
-        });
+        // Said out loud, but NOT as a failure. The fixture is a whole other
+        // game repo; a machine without it is the normal case off this desk,
+        // and CI has no reason to check it out. This used to throw, which
+        // made `npm run check` pass here and fail everywhere else — the
+        // release build was the first thing to notice.
+        console.log(`  SKIP  gamemaker: no ${TC}, so the real-project tests did not run`);
         return;
     }
 
