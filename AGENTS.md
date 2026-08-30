@@ -330,6 +330,18 @@ Windows desk. Once macOS has to come through there, Windows comes too, so both
 halves of a release are built the same way. macOS is `--target
 universal-apple-darwin`: one `.dmg` that cannot be the wrong download.
 
+tauri-action drives the build as `npm run tauri build`, so `desktop/package.json`
+needs a `tauri` script even though `build` already exists and says the same
+thing. Deleting it as redundant is a red release and a green local build, which
+is the worst combination; the file says so next to the script.
+
+`npm run check` has to stay hermetic for the same reason. It is the release
+gate, and anything it reaches for outside the repo passes here and fails on a
+runner — `tests/gamemaker.test.mjs` did exactly that, failing rather than
+skipping when transatlantic_colleague was not beside the checkout. Test a
+change to the suite against `git archive HEAD` in an empty directory, not
+against this desk.
+
 The workflow checks out `magmacrunchmedia/magma-kit` as a named sibling,
 because `desktop/src-tauri/Cargo.toml` declares
 `magma-kit = { path = "../../../magma-kit/crate" }` and cargo cannot resolve it
