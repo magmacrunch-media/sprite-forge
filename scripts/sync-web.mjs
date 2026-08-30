@@ -25,12 +25,20 @@
 // verbatim; if it ever drifts, the sync passes here and the website's build
 // goes red one repo away from the cause.
 //
-// BYTES GO THROUGH UNTOUCHED. Both repos leave line endings to core.autocrlf
-// (see .gitattributes, which names this script), so a byte copy out of a
-// Windows checkout lands as CRLF in a Windows website checkout — exactly what
-// that tree's own git checkout would have produced, and `git status` stays
-// clean. Normalising on write would show every synced file as modified while
-// `git diff` showed nothing, burying the one file that actually changed.
+// BYTES GO THROUGH UNTOUCHED, AND COMPARISONS DO NOT. Both repos leave line
+// endings to core.autocrlf
+// (see .gitattributes, which names this script), so the same committed blob is
+// LF in one working tree and CRLF in the other — git materialises whatever the
+// local config says and reports neither as a change. Writing is therefore a
+// straight byte copy: normalising on write would show every synced file as
+// modified while `git diff` showed nothing, burying the one file that actually
+// changed.
+//
+// But DECIDING whether to write has to normalise, or this reports the whole
+// tree as behind every time the website is checked out on a machine whose
+// autocrlf differs from this one. That is not drift, and it would make --check
+// useless as a gate by crying wolf on all 33 files at once. sameText() is that
+// comparison, and it normalises for the reason the digest does.
 
 import { createHash } from 'node:crypto';
 import {
@@ -68,6 +76,15 @@ const digest = (buf) => createHash('sha256')
     .update(buf.toString('utf8').replace(/\r\n/g, '\n'))
     .digest('hex')
     .slice(0, 8);
+
+/** Same content, whatever each checkout's autocrlf made of the line endings.
+ *  The NUL sniff is git's own text=auto heuristic: never strip a CR out of a
+ *  binary, where it is data rather than a line ending. */
+export function sameText(a, b) {
+    if (a.includes(0) || b.includes(0)) return a.equals(b);
+    const lf = (buf) => buf.toString('latin1').replace(/\r\n/g, '\n');
+    return lf(a) === lf(b);
+}
 
 /**
  * The page, at its new depth.
@@ -209,10 +226,11 @@ function main() {
 
     for (const [rel, bytes] of files) {
         const dest = join(target, ...rel.split('/'));
-        // Skipped when identical so a no-op run does not bump mtimes across
-        // the website tree, which is what makes a re-run cheap and keeps
-        // `git status` over there honest.
-        if (existsSync(dest) && readFileSync(dest).equals(bytes)) continue;
+        // Skipped when the CONTENT matches, not the bytes: see sameText.
+        // That is what keeps a no-op run from bumping mtimes across the
+        // website tree, and what keeps --check honest on a checkout whose
+        // line endings differ from this one's.
+        if (existsSync(dest) && sameText(readFileSync(dest), bytes)) continue;
         writes.push(rel);
         if (check) continue;
         mkdirSync(dirname(dest), { recursive: true });

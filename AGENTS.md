@@ -166,9 +166,9 @@ and the GameMaker importer. Canonical spec lives in `adenosine/packages/rpg/API.
 the `sprites.ts` section; `adenosine/AGENTS.md` marks it "do not change
 unilaterally". Changing `core/sheet.js`'s format is a four-repo change.
 
-## The version lives in six places
+## The version lives in five places, and three lockfiles
 
-No build step means no single source for it, so a bump is six edits:
+No build step means no single source for it, so a bump is five edits:
 
 ```
 package.json                        the repo
@@ -176,7 +176,6 @@ desktop/package.json                the shell's package
 desktop/src-tauri/tauri.conf.json   the installer and the Apps list
 desktop/src-tauri/Cargo.toml        the crate
 app/ui/index.html                   the footer, which only the web build shows
-desktop/src-tauri/Cargo.lock        generated, but tracked
 ```
 
 The footer is the one that rots, because the desktop build hides it — it sat at
@@ -191,11 +190,19 @@ fails `npm test`. The two package.json files are deliberately NOT asserted —
 they are build tooling, nothing publishes them, and wiring them in would be
 fixing a consistency nobody depends on.
 
-`Cargo.lock` is the sixth and is not asserted either, because cargo writes it.
-It is still tracked, so leaving it stale means the first `cargo build` in CI
-dirties the tree on a fresh clone. Bump it with the rest, and prove it with
-`cargo check --locked`, which refuses to rewrite the lockfile and so fails
-rather than papering over a mismatch.
+Three lockfiles carry it as well — `desktop/src-tauri/Cargo.lock`,
+`package-lock.json` and `desktop/package-lock.json`. All three are generated
+and all three are tracked, so **regenerate them, never hand-edit them**:
+
+```
+cd desktop/src-tauri && cargo check --locked
+npm install --package-lock-only
+npm install --package-lock-only --prefix desktop
+```
+
+`--locked` is the useful half of the first one: it refuses to rewrite the
+lockfile, so a stale version fails the command instead of being quietly
+papered over on the next build.
 
 ## The shared kit
 

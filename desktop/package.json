@@ -3,12 +3,12 @@
   "version": "0.3.0",
   "private": true,
   "description": "Tauri shell for SPRITE//FORGE",
+  "_comment": "@tauri-apps/cli is pinned EXACTLY, and to the same version magma-ops-app pins. app/kit/bridge-core.js subscribes to events through transformCallback, a Tauri internal, so the shape must not shift under a patch bump — and both apps now ride the one copy of that code. This note sits at the top level and NOT inside devDependencies: npm reads every key in there as a package name, and `npm ci` rejects one starting with an underscore, which is a red release build rather than a local annoyance.",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build"
   },
   "devDependencies": {
-    "_comment": "Pinned EXACTLY, and to the same version magma-ops-app pins. app/kit/bridge-core.js subscribes to events through transformCallback, a Tauri internal, so the shape must not shift under a patch bump — and both apps now ride the one copy of that code.",
     "@tauri-apps/cli": "2.9.2"
   }
 }
