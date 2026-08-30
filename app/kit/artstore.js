@@ -1,9 +1,9 @@
 // artstore.js — imported art, kept OFF the document.
 //
-// EXTRACTED from deck-forge/app/core/artstore.js, which was itself written
+// EXTRACTED from deck-press/app/core/artstore.js, which was itself written
 // from album//art's measurements. Two hand-rolled copies existed before this
 // file: album//art's imageStore / imageCache / refByData maps inside its
-// canvas.js, and deck-forge's module. That is the bar.
+// canvas.js, and deck-press's module. That is the bar.
 //
 // An element carries an opaque ref ('img7'). The bytes live here, keyed by
 // that ref. This indirection is the single most important decision in any
