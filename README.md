@@ -58,7 +58,7 @@ something away from it.
 ## Installing it
 
 Grab an installer from
-[releases](https://github.com/magmacrunchmedia/sprite-forge/releases) — Windows
+[releases](https://github.com/magmacrunch-media/sprite-forge/releases) — Windows
 x64, and one macOS `.dmg` that runs natively on both Apple Silicon and Intel.
 Every release lists SHA-256 checksums.
 
