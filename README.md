@@ -1,9 +1,9 @@
 # SPRITE//FORGE
 
 Pixel-art sprite and animation editor, built to draw the sprites that go into
-[adenosine](https://github.com/magmacrunchmedia/adenosine) (browser),
-[magnolia](https://github.com/magmacrunchmedia/magnolia) (Wii),
-[texastoast](https://github.com/magmacrunchmedia/texastoast) (Python) and
+[adenosine](https://github.com/magmacrunch-media/adenosine) (browser),
+[magnolia](https://github.com/magmacrunch-media/magnolia) (Wii),
+[texastoast](https://github.com/magmacrunch-media/texastoast) (Python) and
 GameMaker.
 
 Draw a frame, flip through an animation, recolour a character by the *name* of
