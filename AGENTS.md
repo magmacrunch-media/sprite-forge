@@ -342,7 +342,7 @@ skipping when transatlantic_colleague was not beside the checkout. Test a
 change to the suite against `git archive HEAD` in an empty directory, not
 against this desk.
 
-The workflow checks out `magmacrunchmedia/magma-kit` as a named sibling,
+The workflow checks out `magmacrunch-media/magma-kit` as a named sibling,
 because `desktop/src-tauri/Cargo.toml` declares
 `magma-kit = { path = "../../../magma-kit/crate" }` and cargo cannot resolve it
 otherwise. A pre-flight step fails with a sentence rather than inside cargo's

@@ -61,7 +61,7 @@ jobs:
       - name: Check out magma-kit beside it
         uses: actions/checkout@v4
         with:
-          repository: magmacrunchmedia/magma-kit
+          repository: magmacrunch-media/magma-kit
           path: magma-kit
 
       # Fail here, with a sentence, rather than inside cargo's resolver.
