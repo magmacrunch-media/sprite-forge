@@ -25,6 +25,16 @@
 // verbatim; if it ever drifts, the sync passes here and the website's build
 // goes red one repo away from the cause.
 //
+// THEIRS IS STAMPED TOO, BY THEM. ../shell/ is the website's, and the website
+// busts it — sync-adenosine.mjs pass 4 walks ware/ and stamps every page-local
+// .js/.css, ../shell/ included, from a tree where those files exist. This
+// script rewrote the page without those stamps, so the two took turns undoing
+// each other and whichever ran last won. It won: ware/sprite-forge/index.html
+// was the one ware page loading its shared chrome bare while album-art-maker
+// beside it carried ../shell/fonts.css?v=08818834. So the query on a THEIRS
+// reference is now read back out of the target and carried through verbatim —
+// preserved, never recomputed. carriedTheirs() is that, and why.
+//
 // BYTES GO THROUGH UNTOUCHED, AND COMPARISONS DO NOT. Both repos leave line
 // endings to core.autocrlf
 // (see .gitattributes, which names this script), so the same committed blob is
@@ -66,7 +76,8 @@ const COPY = [
 
 const PAGE = { from: join('ui', 'index.html'), to: 'index.html' };
 
-/** The two prefixes that are deliberately the website's, not ours. */
+/** The two prefixes that are deliberately the website's, not ours — neither
+ *  copied nor hashed here, and their `?v=` carried rather than set. */
 const THEIRS = ['../shell/', '../utilities/'];
 
 /** First 8 hex of sha256 over the content with newlines normalised to LF.
@@ -130,15 +141,23 @@ function filesIn(dir, match, deep, prefix = '', out = []) {
  *
  * Exported alongside rewrite() so the suite drives this guard rather than
  * a second copy of the rule that could agree with itself and not with us.
+ *
+ * `theirs` maps a THEIRS url to the query the website's own page already gives
+ * it, from carriedTheirs(). Empty — as the suite calls it — leaves those
+ * references exactly as they arrived, which is what this did before.
  */
-export function stamp(html, files) {
+export function stamp(html, files, theirs = new Map()) {
     const missing = [];
 
     const stamped = html.replace(LOCAL_ASSET, (whole, pre, url, post) => {
         if (/^(https?:)?\/\/|^data:|^#/.test(url)) return whole;
 
         const clean = url.split('?')[0];
-        if (THEIRS.some((p) => clean.startsWith(p))) return whole;
+        if (THEIRS.some((p) => clean.startsWith(p))) {
+            // Not ours to stamp, and equally not ours to strip.
+            const carried = theirs.get(clean);
+            return carried === undefined ? whole : `${pre}${clean}${carried}${post}`;
+        }
 
         const bytes = files.get(clean);
         if (!bytes) {
@@ -160,11 +179,42 @@ export function stamp(html, files) {
 }
 
 /**
- * The whole sync, as data: destination path -> bytes. Nothing is written and
- * nothing is read from the target, so --check and the real run compute the
- * same thing and differ only in what they do with it.
+ * The query each THEIRS reference carries in the page the website has now.
+ *
+ * Read rather than recomputed, deliberately. Hashing ware/shell/ here would
+ * make this repo a second authority over files it does not own and cannot see
+ * change, and two authorities on one stamp is the drift the stamps exist to
+ * prevent. Whatever the website put there — a content hash from
+ * sync-adenosine.mjs, a hand-written serial, nothing at all — is the answer.
+ *
+ * Absent target, absent page, or a bare reference: nothing is carried, and the
+ * page comes out the way it always did.
  */
-export function plan() {
+function carriedTheirs(page) {
+    const carried = new Map();
+    if (!page || !existsSync(page)) return carried;
+
+    const html = readFileSync(page, 'utf8');
+    for (const [, , url] of html.matchAll(LOCAL_ASSET)) {
+        const clean = url.split('?')[0];
+        const query = url.slice(clean.length);
+        if (!query || carried.has(clean)) continue;
+        if (THEIRS.some((p) => clean.startsWith(p))) carried.set(clean, query);
+    }
+    return carried;
+}
+
+/**
+ * The whole sync, as data: destination path -> bytes. Nothing is written, and
+ * --check and the real run compute the same thing and differ only in what they
+ * do with it — both call this with the same target.
+ *
+ * The single thing read back from the target is the query on a THEIRS
+ * reference, which is the website's to set and this script's only to preserve;
+ * see carriedTheirs(). Called with no target, as the suite does, nothing is
+ * carried and the shell references come out bare.
+ */
+export function plan(target) {
     const out = new Map();
 
     for (const rule of COPY) {
@@ -178,7 +228,8 @@ export function plan() {
     // The page last: it is stamped against the files above, which are the
     // bytes the site will actually serve.
     const html = rewrite(readFileSync(join(APP, PAGE.from), 'utf8'));
-    out.set(PAGE.to, Buffer.from(stamp(html, out), 'utf8'));
+    const theirs = carriedTheirs(target && join(target, PAGE.to));
+    out.set(PAGE.to, Buffer.from(stamp(html, out, theirs), 'utf8'));
     return out;
 }
 
@@ -220,7 +271,7 @@ function main() {
         process.exit(1);
     }
 
-    const files = plan();
+    const files = plan(target);
     const writes = [];
     const drops = [];
 
