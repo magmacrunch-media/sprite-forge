@@ -129,4 +129,43 @@ export default function () {
         const theirs = '<link rel="stylesheet" href="../shell/app-shell.css">';
         eq(stamp(theirs, files), theirs, 'left alone, not reported missing');
     });
+
+    /* THEIRS is stamped by the website — sync-adenosine.mjs pass 4 walks ware/
+       and busts ../shell/ from a tree where those files exist. Rewriting the
+       page without those stamps made the two scripts take turns undoing each
+       other, and this one won: sprite-forge was the only ware page loading its
+       shared chrome bare. Carrying the query through ends that. */
+    test('a stamp the website put on ../shell/ is carried, not stripped', () => {
+        const carried = new Map([['../shell/app-shell.css', '?v=2eb63ac6']]);
+        eq(stamp('<link rel="stylesheet" href="../shell/app-shell.css">', files, carried),
+            '<link rel="stylesheet" href="../shell/app-shell.css?v=2eb63ac6">',
+            'the website’s stamp survives the sync');
+    });
+
+    test('carrying replaces the query rather than appending to it', () => {
+        const carried = new Map([['../shell/toast.js', '?v=d87a2776']]);
+        eq(stamp('<script src="../shell/toast.js?v=deadbeef"></script>', files, carried),
+            '<script src="../shell/toast.js?v=d87a2776"></script>',
+            'one query, the carried one');
+    });
+
+    test('nothing carried leaves the reference exactly as it arrived', () => {
+        const bare = '<script src="../shell/toast.js"></script>';
+        eq(stamp(bare, files, new Map()), bare, 'no stamp invented for it');
+    });
+
+    /* The carry is for THEIRS only. Ours are hashed from the bytes being
+       shipped, and a stale query in the source page must not outlive them. */
+    test('the carry does not reach our own files', () => {
+        const carried = new Map([['editor.js', '?v=deadbeef']]);
+        const out = stamp('<script src="editor.js"></script>', files, carried);
+        ok(!out.includes('deadbeef'), 'ours is hashed, never carried');
+        ok(/editor\.js\?v=[0-9a-f]{8}"/.test(out), 'and it is stamped');
+    });
+
+    /* plan() with no target is the suite's call and the old behaviour. */
+    test('with no target the page is planned with its shell bare', () => {
+        const html = files.get('index.html').toString('utf8');
+        ok(/href="\.\.\/shell\/app-shell\.css"/.test(html), 'nothing carried, nothing added');
+    });
 }
