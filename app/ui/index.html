@@ -143,6 +143,31 @@
                     <span class="sheet-label">sheet; click a frame to edit it</span>
                     <canvas id="sheet-canvas"></canvas>
                 </div>
+                <!-- The frame wrapped onto the surface it is bound for. A
+                     texture is the one sprite the canvas cannot show you: an
+                     engine's sphere unwrap puts u=0 on +Z, so a face drawn mid
+                     canvas comes out on the back of the head, and no zoom level
+                     hints at it. The layouts are core/mesh.js's. -->
+                <div class="preview-block" id="mesh-block">
+                    <span class="sheet-label" id="mesh-label">surface</span>
+                    <!-- Controls beside the canvas, not under it. The dock is a
+                         row of the height-constrained canvas panel, so vertical
+                         space here comes straight off the drawing area; there
+                         is horizontal room and the dock scrolls anyway. -->
+                    <div class="mesh-body">
+                        <canvas id="mesh-canvas" width="108" height="108"
+                                title="Drag to turn it. Double-click to face front."></canvas>
+                        <div class="mesh-controls">
+                            <select id="mesh-shape" title="Which surface this frame is going onto"></select>
+                            <div class="mesh-offset">
+                                <button id="mesh-u-down" title="Turn the image one texel around the shape. A view offset — it changes no pixels.">&#9664;</button>
+                                <input id="mesh-u" type="number" step="1"
+                                       title="Offset in texels. Type it: aiming a face at the front of a 64-wide sphere map is 32, and nudging there one texel at a time is not a workflow.">
+                                <button id="mesh-u-up" title="Turn the image one texel around the shape. A view offset — it changes no pixels.">&#9654;</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="export-panel">
                     <div class="export-header">
                         <span>EXPORT OUTPUT</span>
@@ -540,6 +565,7 @@
     <script src="../core/color.js"></script>
     <script src="../core/draw.js"></script>
     <script src="../core/sheet.js"></script>
+    <script src="../core/mesh.js"></script>
     <script src="../core/templates.js"></script>
     <script src="../core/project.js"></script>
     <script src="../core/targets/gamemaker.js"></script>
@@ -562,6 +588,7 @@
     <!-- after editor.js, and before project-ui.js which asks it for the list.
          It seeds itself from the blank sprite the editor has already made. -->
     <script src="sprites-ui.js"></script>
+    <script src="mesh-ui.js"></script>
     <!-- after editor.js: reads the state accessor it defines at the bottom -->
     <script src="project-ui.js"></script>
     <!-- after project-ui.js: exporting a target reads the current project -->

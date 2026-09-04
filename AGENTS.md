@@ -47,7 +47,9 @@ the same `core/` serves the desktop build, the web demo, and the export
 targets, none of which share a DOM.
 
 Load order matters and is fixed in `ui/index.html` — `tier` → `color` → `draw`
-→ `sheet` → `templates` → `editor`. `tier.js` is first in `core/` because it
+→ `sheet` → `mesh` → `templates` → `editor`. `mesh.js` is grouped beside `sheet.js` because
+the two are the pixels-to-bitmap pair and deal in the same `ImageData`; it depends on no
+other core module, so its place is a grouping and not a sequence. `tier.js` is first in `core/` because it
 reads `SpriteForge.fs`, which `ui/bridge.js` decides in `<head>`, and it holds
 that answer for everything below. `sheet.js` and `project.js` both read
 `SpriteForge.color` at IIFE time, and `editor.js` binds every core export at
@@ -57,8 +59,11 @@ its top.
 before handing the menu markup to the kit — the other way round and a Mac build
 shows Ctrl chords that were already read.
 
-After `editor.js` come `sprites-ui.js`, `project-ui.js`, `targets-ui.js`,
-`help-ui.js` and `menu.js`, in that order. sprites-ui seeds itself from the blank sprite the
+After `editor.js` come `sprites-ui.js`, `mesh-ui.js`, `project-ui.js`, `targets-ui.js`,
+`help-ui.js` and `menu.js`, in that order. mesh-ui only has to be after editor.js, which
+calls it; it publishes `SpriteForge.meshUI` and `renderAnim()` looks that up at call time,
+so the preview simply does not draw until the module exists rather than erroring.
+sprites-ui seeds itself from the blank sprite the
 editor has already built, so it must come after it; project-ui asks sprites-ui
 for the whole list when saving; targets-ui reads the current project from
 project-ui; help-ui.js owns the two HELP modals and depends on
@@ -146,6 +151,38 @@ all — it is a `.side-block` above them, always visible, because every tool has
 single-key shortcut and a swatch has none, so it is the one panel that cannot
 afford to be the thing you just closed. Keep it small; that is why THEME &
 REPLACE is its own section rather than living under it.
+
+## The UV layouts in core/mesh.js are copied, not invented
+
+`core/mesh.js` exists because a texture is the one sprite the canvas cannot show you. A face
+drawn in the middle of a 64×32 image lands on the **back** of a sphere, because an engine's
+sphere unwrap puts `u = 0` on `+Z`. No zoom level hints at it, and the mistake survives all
+the way into the game. `ui/mesh-ui.js` is the window onto it, in the dock beside the
+animation preview, in both tiers — a preview needs no filesystem, so it earns no tier row.
+
+**Every layout here is some engine's own formula, and each one is checked against a render
+from that engine before it ships.** The two present were verified against Godot 4.7.1 by
+texturing its own `SphereMesh` and `CylinderMesh` with a calibration image — red ramping
+with u, green ramping with v, blue flagging the top half — and reading the pixels back:
+
+- **sphere** — `v = 0` is the top pole, `u = 0` lies on `+Z`, and the seam column is
+  duplicated at `u = 1`. A 2:1 image is the only aspect that wraps unstretched.
+- **cylinder** — the side is the **top half** of the image only; the two end caps are packed
+  into the bottom half. Half the canvas never appears on the side. The caps are deliberately
+  not drawn: a limb is never seen end-on, and a guessed cap would be a confident lie about
+  half the image.
+
+A plausible-looking wrong layout is worse than no preview, because it is wrong in exactly
+the place someone went looking for the truth. If you add a shape, calibrate it the same way
+rather than reasoning it out — an earlier pass predicted a lighting crease down a face at 8
+segments from flat-shaded reasoning, and the engine renders no such thing, because Godot
+gives `SphereMesh` smooth vertex normals. **That is why `render()` shades from interpolated
+vertex normals and uses the face normal only for back-face culling.**
+
+The offset control is a **view** offset and rewrites no pixels. The fix for a misplaced face
+belongs in the material (`uv1_offset`) or in TRANSFORM's wrapping shift; baking it into the
+preview would make the export disagree with the canvas. It reads in texels so the number can
+be typed into either — 32 on a 64-wide sphere map is `uv1_offset = 0.5`.
 
 ## Not ES modules, deliberately
 

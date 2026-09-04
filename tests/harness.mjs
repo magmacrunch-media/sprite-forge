@@ -14,7 +14,7 @@ import { ImageData, canvas, fakeDocument } from './kit/canvas-shim.mjs';
 
 const APP = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 
-export const ORDER = ['tier.js', 'color.js', 'draw.js', 'sheet.js', 'templates.js', 'project.js',
+export const ORDER = ['tier.js', 'color.js', 'draw.js', 'sheet.js', 'mesh.js', 'templates.js', 'project.js',
     'targets/gamemaker.js', 'targets/engines.js', 'targets/store.js',
     'ops-themes.js', 'palettes.js', 'keybindings.js'];
 

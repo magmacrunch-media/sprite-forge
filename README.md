@@ -29,6 +29,7 @@ reduced in a browser at
 - [x] A targets panel - export lands in a game repo, all four engines
 - [x] Reduced web build synced to magmacrunch.com
 - [x] macOS build — one universal `.dmg`, Apple Silicon and Intel
+- [x] Surface preview — the frame wrapped onto a sphere, cylinder or billboard
 
 ## Two builds, one codebase
 
@@ -41,6 +42,7 @@ boolean into the table below.
 |---|---|---|
 | Tools, palette, shade ramps, REPLACE | yes | yes |
 | Frames, onion skin, animation preview | yes | yes |
+| Surface preview — sphere, cylinder, billboard | yes | yes |
 | Character templates with named slots | yes | yes |
 | Multi-sprite projects over one palette | yes | yes |
 | Colour themes | yes | yes |
@@ -145,7 +147,7 @@ dependency at `../../../magma-kit/crate`, and `npm run check:kit` needs it too.
 
 | | |
 |---|---|
-| `app/core/` | pure logic — colour and shade ramps, shape rasterisation, the sheet codec, the .forge format, export planners |
+| `app/core/` | pure logic — colour and shade ramps, shape rasterisation, the sheet codec, the .forge format, the UV layouts and their renderer, export planners |
 | `app/ui/` | the DOM layer: canvas, widgets, editor state |
 | `app/shell/`, `app/fonts/` | vendored app shell from magmacrunch.com |
 | `desktop/` | the Tauri shell |

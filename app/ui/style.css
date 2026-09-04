@@ -144,6 +144,71 @@ body {
     min-width: 220px;
 }
 
+/* The surface preview draws at its backing size and is not scaled, unlike the
+   two previews above: those are a sprite blown up, this one is already a
+   render at the size it was rendered. Letting CSS shrink it would resample a
+   software raster and smear exactly the texels being placed. */
+#mesh-block { flex: none; }
+
+#mesh-canvas {
+    width: 108px;
+    height: 108px;
+    cursor: grab;
+    touch-action: none;
+    border: 1px solid var(--border);
+    background: repeating-conic-gradient(#15151d 0% 25%, #1d1d28 0% 50%) 0 0 / 12px 12px;
+}
+
+#mesh-canvas:active { cursor: grabbing; }
+
+.mesh-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.mesh-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+}
+
+.mesh-offset {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* One line, so the note never costs the canvas a row. The full sentence is on
+   the select's tooltip. */
+#mesh-label {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mesh-controls select {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 1px 2px;
+}
+
+.mesh-controls button {
+    padding: 0 5px;
+    line-height: 1.5;
+}
+
+.mesh-controls #mesh-u {
+    width: 42px;
+    text-align: center;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 1px 2px;
+}
+
 .preview-block {
     display: flex;
     flex-direction: column;

@@ -317,6 +317,12 @@ function renderAnim() {
   animCtx.clearRect(0, 0, w, h);
   const i = anim.playing ? anim.index % frames.length : frameIndex;
   animCtx.drawImage(cachedFrame(i), 0, 0, w, h);
+  // The surface preview rides the same beat as the animation one, so it
+  // follows an edit and also plays. Read at call time and never captured:
+  // mesh-ui.js does not exist yet when this file is evaluated, the same reason
+  // the sprites-ui and project-ui callbacks are looked up when they are used.
+  const meshUI = window.SpriteForge.meshUI;
+  if (meshUI) meshUI.refresh(cachedFrame(i));
 }
 
 function setPlaying(p) {
