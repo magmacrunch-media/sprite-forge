@@ -30,6 +30,7 @@ reduced in a browser at
 - [x] Reduced web build synced to magmacrunch.com
 - [x] macOS build — one universal `.dmg`, Apple Silicon and Intel
 - [x] Surface preview — the frame wrapped onto a sphere, cylinder or billboard
+- [x] `.forge` save and open in the browser build, so a refresh stops costing you the work
 
 ## Two builds, one codebase
 
@@ -48,14 +49,20 @@ boolean into the table below.
 | Colour themes | yes | yes |
 | Transform, origin, canvas resize, undo | yes | yes |
 | PNG sheet import and export | yes | yes |
-| `.forge` project files — New / Open / Save / Save As | — | yes |
+| `.forge` project files — save one out, open one back | yes | yes |
+| New / Open / Save / Save As against a path, and the dirty marker | — | yes |
 | TARGETS — export straight into a game repo | — | yes |
 | The menu bar | — | yes |
 
-The three desktop-only rows each need a filesystem or a window. That is the
-only reason a row is allowed there: LITE is a strict upgrade on what the web
-tool could already do, never the desktop build made to look better by taking
+The desktop-only rows each need a filesystem or a window. That is the only
+reason a row is allowed there: LITE is a strict upgrade on what the web tool
+could already do, never the desktop build made to look better by taking
 something away from it.
+
+Note where the `.forge` line falls. Saving a project out and opening one back
+are a download and a file picker — no disk, no window — so the browser has
+them, and a refresh no longer costs you the work. What needs a filesystem is
+saving to *the path you opened*, which is the row below it.
 
 ## Installing it
 

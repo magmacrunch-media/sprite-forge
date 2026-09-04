@@ -370,6 +370,18 @@
                 <div class="hint">uniform-grid PNG sheet; reads into
                     <code>magnolia</code>, <code>texastoast</code>, adenosine, and any
                     engine that slices a sheet by frame size.</div>
+
+                <!-- Both tiers. The desktop build writes a path and also has
+                     these in the File menu; the browser downloads the file and
+                     picks one back up, which needs no disk and no window. Here
+                     rather than menu-only because LITE has no menu bar. -->
+                <div class="sub-label">project file</div>
+                <div class="action-row">
+                    <button id="forge-save">SAVE .FORGE</button>
+                    <button id="forge-open">OPEN .FORGE</button>
+                </div>
+                <div class="hint">a <code>.forge</code> holds every sprite, the shared
+                    palette and the origins. A PNG holds only pixels.</div>
             </details>
         </aside>
     </div>

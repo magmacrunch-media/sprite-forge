@@ -29,7 +29,13 @@
        table is in BOTH tiers; the table lists exceptions, so adding a feature
        does not mean remembering to add a row. */
     const CAPABILITIES = {
-        projects: 'full',   // New / Open / Save / Save As, and the .forge file
+        // A PATH-BACKED project: Save to the file you opened, Save As, the doc
+        // name and the dirty marker. NOT the .forge file itself — getting your
+        // work out as a file and picking one back up are a download and a file
+        // input, which need no disk and no window, so they are untiered and
+        // LITE has them. That distinction is the whole reason this table lists
+        // exceptions rather than features.
+        projects: 'full',
         targets: 'full',    // the TARGETS panel — export straight into a game repo
         menubar: 'full',    // the drawn-in-page menu bar
     };

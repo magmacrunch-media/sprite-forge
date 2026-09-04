@@ -21,6 +21,8 @@ function mount(opts = {}) {
     const logged = [];
     const adopted = [];
     const selected = [];
+    const downloads = [];
+    const names = [];
     let revision = 1;
     let list = opts.sprites || null;
 
@@ -68,6 +70,22 @@ function mount(opts = {}) {
     // Absent entirely unless the case supplies one, so the no-confirm-available
     // branch is a real state and not just an untested `if`.
     if (opts.confirm) sandbox.SpriteForge.fs.confirm = opts.confirm;
+
+    // Opt-in, so every case above keeps the bare sandbox and doDownload's
+    // feature detection stays a real branch rather than one nothing reaches.
+    // Just enough of a browser to watch a download happen: what got put in the
+    // blob, and what the anchor was told to call it.
+    if (opts.browser) {
+        sandbox.Blob = class { constructor(parts) { downloads.push(String(parts[0])); } };
+        sandbox.URL = { createObjectURL: () => 'blob:stub', revokeObjectURL: () => {} };
+        sandbox.setTimeout = () => 0;
+        sandbox.document.createElement = () => ({
+            set download(v) { names.push(v); },
+            get download() { return names[names.length - 1]; },
+            click: () => {},
+            addEventListener: () => {},
+        });
+    }
     // The web build has no fs at all, and the theme recolour runs there too.
     if (opts.noFs) delete sandbox.SpriteForge.fs;
 
@@ -82,7 +100,7 @@ function mount(opts = {}) {
     return {
         P: sandbox.SpriteForge.project,
         ui: sandbox.SpriteForge.projectUI,
-        toasts, written, logged, adopted, selected,
+        toasts, written, logged, adopted, selected, downloads, names,
         sprites: () => list,
         touch: () => { revision++; },
     };
@@ -381,5 +399,54 @@ export default async function (SF) {
     test('an empty theme is refused rather than wiping the art', () => {
         eq(emptyOk, false, 'nothing to apply');
         eq(empty.adopted, [], 'and nothing applied');
+    });
+
+    /* ── LITE gets its work out as a file ───────────────────────────────
+       A browser has no path to write to, but a download and a file input need
+       neither a disk nor a window, so `projects` staying full does NOT mean the
+       web build has to lose everything on a refresh. These pin the two things
+       that matter: the bytes are the same bytes, and the refusal is the same
+       refusal. If LITE ever grew its own encode, one of these breaks. */
+
+    const web = mount({ noFs: true, browser: true, sprites: [sprite('dag', 2)] });
+    web.touch();
+    await web.ui.save();
+
+    const webTooMany = mount({ noFs: true, browser: true, colors: 200, palette: ['#000000'] });
+    webTooMany.touch();
+    await webTooMany.ui.save();
+
+    const webUnnamed = mount({ noFs: true, browser: true });
+    const fullBrowser = mount({ browser: true });
+    fullBrowser.touch();
+    await fullBrowser.ui.save();
+
+    test('with no filesystem, Save downloads the project instead of doing nothing', () => {
+        eq(web.downloads.length, 1, 'one download');
+        eq(web.written, [], 'and nothing pretended to reach a disk');
+        const back = SF.project.parse(web.downloads[0]);
+        eq(back.sprites.length, 1, 'it round-trips through the parser');
+        eq(back.sprites[0].name, 'dag', 'carrying the sprite');
+    });
+
+    test('the download is named after the work, not after the tool', () => {
+        eq(web.names, ['dag.forge'], 'the sprite names the file');
+        eq(webUnnamed.ui.suggestedName(), 'untitled.forge', 'an unnamed sprite falls back');
+    });
+
+    test('downloading refuses the same projects a disk save refuses', () => {
+        eq(webTooMany.downloads, [], 'nothing was handed to the browser');
+        ok(webTooMany.toasts.some(t => /200 colours/i.test(t)),
+            `the count is said, not swallowed: ${JSON.stringify(webTooMany.toasts)}`);
+    });
+
+    test('a download is not unsaved work, so the close guard stops asking', () => {
+        eq(web.ui.isDirty(), false, 'the bytes left, even though no path was kept');
+        eq(web.ui.path(), null, 'and there is no path to remember');
+    });
+
+    test('with a filesystem, Save still writes a path and downloads nothing', () => {
+        eq(fullBrowser.downloads, [], 'no download in the desktop build');
+        eq(fullBrowser.written.length, 1, 'it went to disk');
     });
 }

@@ -120,6 +120,18 @@ by taking something away from the web one. `tests/tier.test.mjs` asserts that
 decision rather than the mechanism, including the exact set of three, so a
 fourth is a deliberate edit to a test.
 
+`projects` is the sharpest case, and its boundary is worth stating: it means a
+**path-backed** project — Save to the file you opened, Save As, the doc name,
+the dirty marker. It does **not** mean the `.forge` file. Getting your work out
+as a file and picking one back up are a download and a file input, which need
+neither a disk nor a window, so they are untiered and LITE has them, wired to
+the same `encodeCurrent()` and `adoptFromText()` the desktop build uses. Before
+that split, a refresh in the browser lost everything, which was the one place
+LITE was not a strict upgrade on the page it replaced. `Ctrl+S` downloads there;
+`project:save-as` is the only shortcut still gated, because it asks for a path.
+`tests/project-ui.test.mjs` pins that both tiers refuse the same projects — if
+LITE ever grows its own encode, one of those breaks.
+
 The CSS gate stays alongside the tier gate, and both are wanted: `style.css`
 hides `.menubar` and `.doc-name` until `bridge.js` sets `html.desktop`, which
 stops a flash, while the tier stops the code running. That second half is not
