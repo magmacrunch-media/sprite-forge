@@ -9,9 +9,12 @@ export default function (SF) {
         ok(S.blank().format.startsWith('sprite-forge/targets/'), 'format is stamped');
     });
 
-    test('the kinds are the sheet engines plus gamemaker', () => {
+    // Asserted as an exact set, so a fifth kind is a deliberate edit here rather
+    // than something that quietly appears. The three sheet engines come from
+    // engines.js; gamemaker and godot are listed because neither takes a sheet.
+    test('the kinds are the sheet engines, plus gamemaker and godot', () => {
         eq([...S.KINDS].sort(),
-            ['adenosine', 'gamemaker', 'magnolia', 'texastoast'], 'kinds');
+            ['adenosine', 'gamemaker', 'godot', 'magnolia', 'texastoast'], 'kinds');
     });
 
     test('adding a target keeps the original untouched', () => {
@@ -49,7 +52,7 @@ export default function (SF) {
     test('a target has to say what it is and where it goes', () => {
         throws(() => S.add(S.blank(), { ...dag, root: '   ' }), 'root is empty');
         throws(() => S.add(S.blank(), { ...dag, label: '' }), 'label is empty');
-        throws(() => S.add(S.blank(), { ...dag, kind: 'godot' }), 'unknown kind');
+        throws(() => S.add(S.blank(), { ...dag, kind: 'unity' }), 'unknown kind');
     });
 
     test('removing is by identity, and removing nothing is not an error', () => {

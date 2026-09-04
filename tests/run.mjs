@@ -38,7 +38,7 @@ test('index.html loads kit/ then core/, before ui/', () => {
         'platform.js relabels before menu.js reads a label');
 });
 
-const suites = ['./tier.test.mjs', './project.test.mjs', './color.test.mjs', './draw.test.mjs', './sheet.test.mjs', './mesh.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs', './project-ui.test.mjs', './sprites-ui.test.mjs', './platform.test.mjs', './keybindings.test.mjs', './version.test.mjs', './sync-web.test.mjs', './kit-integrity.test.mjs'];
+const suites = ['./tier.test.mjs', './project.test.mjs', './color.test.mjs', './draw.test.mjs', './sheet.test.mjs', './mesh.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './godot.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs', './project-ui.test.mjs', './sprites-ui.test.mjs', './platform.test.mjs', './keybindings.test.mjs', './version.test.mjs', './sync-web.test.mjs', './kit-integrity.test.mjs'];
 // Awaited because project-ui.test.mjs drives async Save calls. The sync suites
 // return undefined and are unaffected; without it the tally below would print
 // before the async one had finished counting.

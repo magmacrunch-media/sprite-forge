@@ -23,11 +23,12 @@ window.SpriteForge.targets.store = (function () {
 
     // The three sheet engines come from engines.js rather than being listed
     // again here — that file is already the one place that knows what an
-    // engine is. GameMaker is not one of them: it does per-frame surgery on a
-    // .yy instead of taking a sheet, which is why it has its own planner.
+    // engine is. The other two are not engines in that sense and each has its
+    // own planner: GameMaker does per-frame surgery on a .yy, and Godot writes
+    // C# source instead of an image at all.
     const KINDS = window.SpriteForge.targets.engines.kinds()
         .map(k => k.id)
-        .concat('gamemaker');
+        .concat('gamemaker', 'godot');
 
     /** No targets at all — what a machine has before it adds its first. */
     function blank() {

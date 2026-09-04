@@ -229,8 +229,10 @@
                     <button id="target-add">ADD FOLDER&hellip;</button>
                 </div>
                 <div class="hint">the sheet lands in the engine's own directory
-                    under the folder you pick. the list of folders is yours, not
-                    the project's &mdash; it never leaves this machine.</div>
+                    under the folder you pick &mdash; godot takes C# source
+                    instead of a PNG, so nothing needs importing before the game
+                    will run. the list of folders is yours, not the project's
+                    &mdash; it never leaves this machine.</div>
             </details>
 
             <details class="side-section" data-section="tools">
@@ -584,6 +586,7 @@
     <script src="../core/targets/engines.js"></script>
     <!-- store reads engines.kinds() at load: an engine it has never heard
          of is not a target anyone can add. -->
+    <script src="../core/targets/godot.js"></script>
     <script src="../core/targets/store.js"></script>
     <!-- data then the logic that reads it -->
     <script src="../core/ops-themes.js"></script>

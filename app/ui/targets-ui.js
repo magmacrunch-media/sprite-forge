@@ -16,6 +16,7 @@
     const S = window.SpriteForge.targets.store;
     const E = window.SpriteForge.targets.engines;
     const GM = window.SpriteForge.targets.gamemaker;
+    const GD = window.SpriteForge.targets.godot;
     const sheet = window.SpriteForge.sheet;
     const png = window.SpriteForge.png;
 
@@ -114,8 +115,11 @@
 
             const go = document.createElement('button');
             go.textContent = 'EXPORT';
-            go.addEventListener('click', () =>
-                (t.kind === 'gamemaker' ? exportGameMaker(t) : exportTo(t)));
+            // A dispatch rather than a ternary chain: three kinds of export now,
+            // and which one a target gets is a fact about its kind, not a nested
+            // condition to read. Anything not named here takes a sheet.
+            const EXPORTERS = { gamemaker: exportGameMaker, godot: exportGodot };
+            go.addEventListener('click', () => (EXPORTERS[t.kind] || exportTo)(t));
 
             const del = document.createElement('button');
             del.className = 'target-del';
@@ -197,9 +201,18 @@
             return;
         }
 
-        // The snippet is where the origin survives the trip: it is not in the
-        // PNG, so the call that loads the sheet is the only place it is
-        // written down.
+        report(t, plan);
+    }
+
+    /**
+     * What was written, and the line that loads it.
+     *
+     * Shared by all three export paths so they cannot come to disagree about
+     * how an export is reported. The snippet is where the origin survives the
+     * trip for a sheet: it is not in the PNG, so the call that loads it is the
+     * only place that number is written down.
+     */
+    function report(t, plan) {
         if (exportOutput) {
             exportOutput.value = [
                 `// sprite//forge -> ${t.label} (${t.kind})`,
@@ -214,6 +227,35 @@
         toast(plan.warnings.length
             ? `exported with ${plan.warnings.length} warning${plan.warnings.length === 1 ? '' : 's'}`
             : `exported to ${t.label}`);
+    }
+
+    // ── Godot ───────────────────────────────────────────────
+    //
+    // No image at all: the frames become C# source that rebuilds the texture at
+    // runtime. See core/targets/godot.js for why that is the right shape for a
+    // Godot project rather than a PNG.
+
+    async function exportGodot(t) {
+        const project = projectUI().currentProject();
+        let plan;
+        try {
+            plan = GD.planProject({ project });
+        } catch (e) {
+            toast(e.message);
+            console.error('could not plan export:', e);
+            return;
+        }
+
+        try {
+            // Text, not bytes — the whole point of this target.
+            for (const w of plan.writes) await fs().writeTextInRoot(t.root, w.path, w.text);
+        } catch (e) {
+            toast('could not export');
+            console.error(`export to ${t.root} failed:`, e);
+            return;
+        }
+
+        report(t, plan);
     }
 
     // ── GameMaker ───────────────────────────────────────────
@@ -333,7 +375,12 @@
     // ── init ────────────────────────────────────────────────
 
     if (kindSelect) {
-        for (const { id, label } of E.kinds()) {
+        // The three sheet engines, then Godot. GameMaker is a valid kind in the
+        // store but is deliberately not offered here: adding one means choosing
+        // a sprite slot inside an existing .yy, which the export flow asks for
+        // rather than the Add button.
+        const KINDS = E.kinds().concat({ id: 'godot', label: 'godot (C# source)' });
+        for (const { id, label } of KINDS) {
             const opt = document.createElement('option');
             opt.value = id;
             opt.textContent = label;
@@ -351,6 +398,6 @@
         render,
         targets: () => (store ? store.targets : []),
         // For tests: drive the same paths the buttons do.
-        add: addTarget, exportTo, exportGameMaker, reload: loadStore,
+        add: addTarget, exportTo, exportGameMaker, exportGodot, reload: loadStore,
     };
 }());

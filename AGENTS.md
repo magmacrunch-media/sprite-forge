@@ -164,6 +164,44 @@ single-key shortcut and a swatch has none, so it is the one panel that cannot
 afford to be the thing you just closed. Keep it small; that is why THEME &
 REPLACE is its own section rather than living under it.
 
+## The Godot target writes source, not an image
+
+`core/targets/godot.js` is the odd one out and meant to be. The other four hand
+over a PNG — adenosine, magnolia and texastoast read a uniform-grid sheet, and
+GameMaker takes the frames apart. This one emits **C# source** that rebuilds the
+texture at runtime, because a `.forge` frame is already rows of characters
+indexing a colour key and that transliterates straight into C#.
+
+Three things that buys a Godot project, and they are the reason not to "fix" it
+into writing a PNG:
+
+- **No `.import` file.** Godot generates one the first time it sees an image, in
+  the editor. Source is compiled with everything else, so a fresh clone runs
+  without opening the editor first.
+- A recolour stays a one-line diff, the same as it is in the `.forge`.
+- A game whose rule is that nothing loads from disk keeps it. very-long-boards
+  says exactly that about its procedural textures; this is what let its
+  character art land without making an exception of itself.
+
+**One frame.** A texture is one image and there is no sheet here to slice. More
+frames export the first and warn; an animation wants a sheet target and
+`AnimatedTexture` at the other end.
+
+The decoder (`ForgeArt.cs`) is emitted alongside the art, once per export rather
+than once per sprite. A project that got the art and not the decoder does not
+compile, and sending someone to find the other file is a worse failure than
+rewriting one they already have — it is byte-identical every time.
+
+`store.js` lists `godot` beside `gamemaker` rather than taking it from
+`engines.kinds()`, because neither takes a sheet. `tests/targets-store.test.mjs`
+asserts the exact set of five, so a sixth is a deliberate edit to a test.
+
+The generated art carries only a short doc comment. Anything worth saying about
+a *particular* piece of art — why Carl's face is a tint map, why the deck
+material needs `Uv1Offset` — belongs in the consuming repo's own copy or the
+code that uses it, because a generator cannot know it and a re-export would
+throw it away.
+
 ## The UV layouts in core/mesh.js are copied, not invented
 
 `core/mesh.js` exists because a texture is the one sprite the canvas cannot show you. A face

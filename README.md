@@ -23,10 +23,11 @@ reduced in a browser at
 - [x] `core/` extracted from the DOM layer, so a desktop build can share it
 - [x] `.forge` project files — readable, diffable, round-trip tested
 - [x] Export planners for GameMaker, adenosine, magnolia and texastoast
+- [x] Godot target - writes C# source rather than a PNG, so nothing needs importing
 - [x] Tauri shell and the Open / Save / Save As panel - 3.3 MB binary
 - [x] Windows installers - per-user NSIS (1.2 MB) and MSI (1.8 MB)
 - [x] Multi-sprite projects over one shared palette
-- [x] A targets panel - export lands in a game repo, all four engines
+- [x] A targets panel - export lands in a game repo, all five targets
 - [x] Reduced web build synced to magmacrunch.com
 - [x] macOS build — one universal `.dmg`, Apple Silicon and Intel
 - [x] Surface preview — the frame wrapped onto a sphere, cylinder or billboard
