@@ -347,6 +347,65 @@ by hand and is not regenerated.
 A theme is only the set of swatches you draw *from*. It never rewrites placed
 pixels — that is REPLACE and the template slots.
 
+## An export into a folder that is gone SUCCEEDS
+
+That is the reason `targets-ui.js` asks the disk before each of its three
+exports. `magma_kit::fs::write_in_root` calls `create_dir_all` on the parent, so
+a root that has been moved or deleted is rebuilt out of nothing, the sheet lands
+in it, and the panel reports every file it wrote. Nothing is wrong with the
+sprite, the plan or the write — the export is simply into a directory no game
+reads, and there is no error anywhere to notice.
+
+It is not hypothetical, and it is not the user's mistake either. Every target is
+a folder chosen from a dialog, so it existed when it was added; what makes one
+stop existing is the **repo moving**. This desk's own `targets.json` still named
+`C:/magma/dev/moonlight-drift/wii`, from before the games moved under
+`magmacrunch/games/`, and three of the five export kinds would have quietly
+served it.
+
+So `stillThere()` refuses, and names the path rather than saying "could not
+export" — the path is the news, and a generic message sends you looking at the
+sprite. `checkRoots()` is the advance warning that marks the row rose; it is
+only a mark, and the export re-asks, which is why a target on a drive that was
+unplugged and is back needs no reload and why the button stays enabled on a
+marked row. `tests/targets-ui.test.mjs` pins all three refusals, and it is the
+second ui/ file with tests for the same reason `project-ui.js` was the first:
+what to do when something will not work is logic, not DOM.
+
+GameMaker was the near-miss that makes the case. It reads the `.yyp` before it
+plans, so a missing root already failed there — with "could not read the
+project", which is the wrong sentence about the right problem.
+
+## A sibling repo is in one of two places
+
+Two files reach outside this repo for a real fixture, and each tries the flat
+sibling first and then the grouped location:
+
+| | |
+|---|---|
+| `tests/gamemaker.test.mjs` | `../transatlantic_colleague`, then `../../games/transatlantic_colleague` |
+| `scripts/import-moonlight-drift.mjs` | `../moonlight-drift`, then `../../games/moonlight-drift` |
+
+A bare clone gets the first; this tree has the second, because the apps and the
+games are separate directories under `magmacrunch/`. Both are overridable —
+`SPRITE_FORGE_TC` and `--drift`. The same pattern as the magnolia games' Wii
+Makefiles and texas-holdem-lava-dome's `js_oracle.mjs`, and for the same reason.
+
+Each had only the flat path, written when the tree was flat, and **the two
+failed differently in a way worth knowing apart.** The script threw its own
+"is --drift pointing at a moonlight-drift checkout?" at a checkout that was
+right there — loud, and wrong about the cause. The test suite printed a skip,
+which is indistinguishable from the hermetic pass it is *supposed* to give a
+machine with no copy of the game, so five oracle tests — the ones that hold the
+GameMaker port to the output of the Python script it was ported from — sat dead
+from the reorganisation until 2026-09-13 and the tally never dropped. The skip
+now names every path it looked at, for exactly that reason.
+
+`tests/gamemaker.test.mjs` also resolved from `process.cwd()` rather than from
+its own location, which is a second way to the same silence: `node
+tests/run.mjs` from anywhere but the repo root skipped. Everything else under
+`tests/` uses `import.meta.url`; so does this now.
+
 ## Importing a game's existing art
 
 `node scripts/import-moonlight-drift.mjs` turns moonlight-drift's 48 pre-rendered
@@ -428,6 +487,11 @@ runner — `tests/gamemaker.test.mjs` did exactly that, failing rather than
 skipping when transatlantic_colleague was not beside the checkout. Test a
 change to the suite against `git archive HEAD` in an empty directory, not
 against this desk.
+
+Both halves of that, though: hermetic **and** actually running here. The fix for
+the failure was a skip, and the skip then covered for a stale path for weeks —
+see "A sibling repo is in one of two places" above. The empty directory should
+report the skip; this desk should report 284 and no skip line at all.
 
 The workflow checks out `magmacrunch-media/magma-kit` as a named sibling,
 because `desktop/src-tauri/Cargo.toml` declares

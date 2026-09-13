@@ -1,13 +1,33 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test, eq, ok, throws } from './assert.mjs';
 
-// The reference project lives beside this repo. When it is not checked out the
-// .yy-shaped tests report a skip rather than a pass — but the synthetic ones,
-// which encode the rules, always run.
-const TC = join(process.cwd(), '..', 'transatlantic_colleague');
+// The reference project. When it is not checked out the .yy-shaped tests report
+// a skip rather than a pass — but the synthetic ones, which encode the rules,
+// always run.
+//
+// Two candidates, tried in order, the way the magnolia games' Makefiles and
+// texas-holdem-lava-dome's js_oracle.mjs already do it: the flat sibling a
+// bare clone gets, then the grouped one this tree has, where the apps and the
+// games are separate directories under magmacrunch/. It was the first alone,
+// resolved from process.cwd(), and that is TWO ways for a real check to stop
+// being one — the games moved out from beside the apps, and cwd is the caller's
+// business rather than this file's. The five oracle tests below reported a skip
+// for it, which reads exactly like the hermetic pass the runner is meant to
+// give a machine that has no copy of the game. Resolve from this file instead.
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const CANDIDATES = [
+    // An override first, for a checkout somewhere neither candidate covers.
+    process.env.SPRITE_FORGE_TC,
+    join(REPO, '..', 'transatlantic_colleague'),
+    join(REPO, '..', '..', 'games', 'transatlantic_colleague'),
+].filter(Boolean);
+
+const sprite = (root, spr) => join(root, 'sprites', spr, spr + '.yy');
+const TC = CANDIDATES.find(c => existsSync(sprite(c, 'spr_player_walk_down')));
 const yyPath = spr => join(TC, 'sprites', spr, spr + '.yy');
-const haveTC = existsSync(yyPath('spr_player_walk_down'));
+const haveTC = Boolean(TC);
 
 export default function (SF) {
     const GM = SF.targets.gamemaker;
@@ -159,7 +179,11 @@ export default function (SF) {
         // and CI has no reason to check it out. This used to throw, which
         // made `npm run check` pass here and fail everywhere else — the
         // release build was the first thing to notice.
-        console.log(`  SKIP  gamemaker: no ${TC}, so the real-project tests did not run`);
+        // Every path it looked at, not just the first. A skip naming one
+        // candidate is how this went unnoticed: the line was true, the repo was
+        // on the disk, and the sentence gave no way to tell those apart.
+        console.log('  SKIP  gamemaker: no transatlantic_colleague at ' +
+            CANDIDATES.join(' or ') + ', so the real-project tests did not run');
         return;
     }
 

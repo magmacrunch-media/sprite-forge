@@ -38,6 +38,11 @@
     let store = S.blank();
     let configDir = null;
 
+    // The ids of the targets whose root is not on the disk. checkRoots() below
+    // says why a folder chosen from a dialog can stop being there, and why that
+    // is worth a mark on the row rather than left to the export to find out.
+    let missing = new Set();
+
     const toast = (m) => window.Toast ? window.Toast.show(String(m).toUpperCase()) : console.log(m);
     const join = (dir, file) => dir.replace(/[\\/]+$/, '') + '/' + file;
 
@@ -60,6 +65,52 @@
             store = null;
         }
         render();
+        // Deliberately not awaited into the render above: the list is worth
+        // drawing before a disk has answered for every row on it, and
+        // checkRoots draws again once it has.
+        checkRoots();
+    }
+
+    /** Marks the rows whose root is not on the disk right now.
+     *
+     *  Every target was chosen from a folder dialog, so each root existed once.
+     *  What makes one stop existing is the repo moving — this tree's games left
+     *  dev/ for dev/magmacrunch/games/ — and from in here a moved repo is
+     *  invisible, because an export into a vanished root SUCCEEDS. writeInRoot
+     *  creates the parent directories it needs, so it rebuilds the old path out
+     *  of nothing, writes the sheet into it, and reports every file it wrote.
+     *  The game never sees one of them and nothing says so.
+     *
+     *  This is the advance warning. stillThere() is the refusal, and it is the
+     *  one that decides — so a mark gone stale, a target on a drive that was
+     *  unplugged and is back, costs a redraw rather than an export.
+     */
+    async function checkRoots() {
+        const f = fs();
+        if (!f || !store) return;
+        const gone = new Set();
+        for (const t of store.targets)
+            if (!await f.exists(t.root)) gone.add(S.id(t.kind, t.root));
+        missing = gone;
+        render();
+    }
+
+    /** Checked at the top of all three exports, and freshly rather than out of
+     *  `missing`: this is the answer that matters, and the panel may have been
+     *  open since before the folder went. */
+    async function stillThere(t) {
+        const key = S.id(t.kind, t.root);
+        if (await fs().exists(t.root)) {
+            if (missing.delete(key)) render();
+            return true;
+        }
+        missing.add(key);
+        render();
+        // The path is the news, so the path is what it says. "could not export"
+        // would be true and would send you looking at the sprite.
+        toast(`${t.root} is not there any more`);
+        console.error(`export to ${t.label} refused: ${t.root} does not exist`);
+        return false;
     }
 
     /** Where the list lives. Resolved on demand rather than only in loadStore:
@@ -105,13 +156,20 @@
         }
 
         for (const t of store.targets) {
+            const gone = missing.has(S.id(t.kind, t.root));
+
             const row = document.createElement('div');
-            row.className = 'target-row';
+            row.className = gone ? 'target-row gone' : 'target-row';
 
             const name = document.createElement('div');
             name.className = 'target-name';
             name.textContent = t.label;
-            name.title = `${t.kind} — ${t.root}`;
+            // EXPORT is left enabled on a row that is marked. The mark is a
+            // guess that can be a moment out of date; the export re-asks the
+            // disk and refuses there, so a target coming back needs no reload.
+            name.title = gone
+                ? `${t.kind} — ${t.root} — NOT THERE`
+                : `${t.kind} — ${t.root}`;
 
             const go = document.createElement('button');
             go.textContent = 'EXPORT';
@@ -146,6 +204,10 @@
             store = next;
             render();
             toast('target added');
+            // The folder was just picked out of a dialog, so this one is not in
+            // doubt; the probe is for the rest of the list, which has had as
+            // long as the app has been open to go stale.
+            checkRoots();
         } catch (e) {
             // The store refuses a folder already registered for that engine.
             // Its message is prefixed with the index it was validating, which
@@ -177,6 +239,7 @@
     // ── the export itself ───────────────────────────────────
 
     async function exportTo(t) {
+        if (!await stillThere(t)) return;
         const project = projectUI().currentProject();
         let plan;
         try {
@@ -236,6 +299,7 @@
     // Godot project rather than a PNG.
 
     async function exportGodot(t) {
+        if (!await stillThere(t)) return;
         const project = projectUI().currentProject();
         let plan;
         try {
@@ -293,6 +357,7 @@
     }
 
     async function exportGameMaker(t) {
+        if (!await stillThere(t)) return;
         const f = fs();
         const sprite = projectUI().currentProject().sprites[0];
 
@@ -389,6 +454,11 @@
     }
     if (btnAdd) btnAdd.addEventListener('click', addTarget);
 
+    // Opening the panel re-asks, so the marks are as old as the last time you
+    // looked at them rather than as old as the session. A closed panel is not
+    // worth a disk call per row.
+    if (panel) panel.addEventListener('toggle', () => { if (panel.open) checkRoots(); });
+
     render();
     // A browser tab has no game repo to write into, so there is no
     // targets.json to go looking for either.
@@ -399,5 +469,6 @@
         targets: () => (store ? store.targets : []),
         // For tests: drive the same paths the buttons do.
         add: addTarget, exportTo, exportGameMaker, exportGodot, reload: loadStore,
+        checkRoots, missing: () => [...missing],
     };
 }());

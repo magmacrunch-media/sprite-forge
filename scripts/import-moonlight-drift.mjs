@@ -68,6 +68,25 @@ const DEFAULT_ALPHA = 128;
 
 const TAURI_IDENTIFIER = 'com.magmacrunch.sprite-forge';
 
+// Where moonlight-drift is, absent a --drift. Two candidates in order, the same
+// pair tests/gamemaker.test.mjs tries for transatlantic_colleague and for the
+// same reason: a bare clone gets the flat sibling, while in this tree the apps
+// and the games are separate directories under magmacrunch/, so the game is one
+// level up and across. The first alone was written before that move, and what it
+// produced afterwards was findSprites' "is --drift pointing at a moonlight-drift
+// checkout?" for a checkout that was right there.
+const DRIFT_CANDIDATES = [
+    join(REPO, '..', 'moonlight-drift'),
+    join(REPO, '..', '..', 'games', 'moonlight-drift'),
+];
+
+/** The first candidate that has the sprites this reads, else the first, so the
+ *  error names a path rather than nothing. */
+function findDrift() {
+    return DRIFT_CANDIDATES.find(d => existsSync(join(d, 'wii', 'sprites')))
+        || DRIFT_CANDIDATES[0];
+}
+
 // ── arguments ───────────────────────────────────────────
 
 function parseArgs(argv) {
@@ -111,7 +130,8 @@ function parseArgs(argv) {
 const USAGE = `
   node scripts/import-moonlight-drift.mjs [options]
 
-    --drift <path>   the moonlight-drift checkout   (default: ../moonlight-drift)
+    --drift <path>   the moonlight-drift checkout   (default: ../moonlight-drift,
+                     else ../../games/moonlight-drift)
     --out <dir>      where the .forge files go      (default: <drift>/wii/forge)
     --colors <n>     palette size, 2-${MAX_KEY_COLORS}          (default: ${DEFAULT_COLORS})
     --alpha <n>      a pixel this opaque is kept    (default: ${DEFAULT_ALPHA}, the editor's own cut)
@@ -307,7 +327,7 @@ try {
         process.exit(0);
     }
 
-    const DRIFT = resolve(opts.drift || join(REPO, '..', 'moonlight-drift'));
+    const DRIFT = resolve(opts.drift || findDrift());
     const WII = join(DRIFT, 'wii');
     const OUT = resolve(opts.out || join(WII, 'forge'));
 

@@ -974,6 +974,17 @@ input[type="file"]::file-selector-button:hover { border-color: var(--dim); }
 .target-row button { flex-shrink: 0; }
 .target-row .target-del { padding-left: 7px; padding-right: 7px; }
 
+/* A target whose folder is no longer on the disk. Rose rather than hidden or
+   removed, because the row is still the record of a repo you export into — it
+   has moved, and forgetting it for you would be the wrong guess. The tooltip
+   carries the path and the word; at this width the label cannot. */
+.target-row.gone .target-name {
+    border-left-color: var(--rose);
+    color: var(--dim);
+    text-decoration: line-through;
+    text-decoration-color: var(--rose);
+}
+
 /* The app's selects. Styled rather than left native because a Windows combo
    box in the middle of this sidebar is the same mismatch a native menu bar
    would have been across the top. */
