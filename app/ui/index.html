@@ -329,7 +329,7 @@
                 <div class="tool-grid three">
                     <button id="flip-h" title="Flip horizontal (H)">&#8644; FLIP</button>
                     <button id="flip-v" title="Flip vertical (V)">&#8645; FLIP</button>
-                    <button id="rot-90" title="Rotate 90&deg; clockwise (R, square frames only)">&#8635; 90&deg;</button>
+                    <button id="rot-90" title="Turn the whole sprite 90&deg; clockwise — every frame, and the frame size with them (R)">&#8635; 90&deg;</button>
                 </div>
                 <div class="sub-label">shift (arrow keys)</div>
                 <div class="tool-grid">
@@ -511,8 +511,8 @@
                 <dt><kbd>Shift</kbd><kbd>[</kbd> <kbd>]</kbd></dt><dd>Move this frame earlier / later &mdash; or drag it in the sheet strip</dd>
                 <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
                 <dt><kbd>&larr;&uarr;&darr;&rarr;</kbd></dt><dd>Nudge the whole drawing a pixel, wrapping at the edge &mdash; with a selection up they move that instead</dd>
-                <dt><kbd>H</kbd> <kbd>V</kbd></dt><dd>Flip across the vertical / horizontal</dd>
-                <dt><kbd>R</kbd></dt><dd>Rotate 90&deg;, square frames only</dd>
+                <dt><kbd>H</kbd> <kbd>V</kbd></dt><dd>Flip this frame across the vertical / horizontal</dd>
+                <dt><kbd>R</kbd></dt><dd>Turn the whole sprite 90&deg; clockwise &mdash; every frame, and the frame size with them. A 16&times;24 becomes a 24&times;16 and the origin goes with it.</dd>
             </dl>
 
             <div class="sub-label">view</div>
@@ -612,6 +612,7 @@
     <script src="../core/draw.js"></script>
     <script src="../core/select.js"></script>
     <script src="../core/frames.js"></script>
+    <script src="../core/transform.js"></script>
     <script src="../core/sheet.js"></script>
     <script src="../core/mesh.js"></script>
     <script src="../core/templates.js"></script>

@@ -755,17 +755,49 @@ function mutateFrame(fn) {
   render(); renderSheet();
 }
 
-document.getElementById('flip-h').addEventListener('click', () =>
-  mutateFrame(f => f.map(row => [...row].reverse())));
+const TR = () => window.SpriteForge.transform;
 
-document.getElementById('flip-v').addEventListener('click', () =>
-  mutateFrame(f => [...f].reverse().map(row => [...row])));
+document.getElementById('flip-h').addEventListener('click', () => mutateFrame(TR().flipH));
+document.getElementById('flip-v').addEventListener('click', () => mutateFrame(TR().flipV));
+document.getElementById('rot-90').addEventListener('click', () => rotateSprite());
 
-document.getElementById('rot-90').addEventListener('click', () => {
-  if (frameW !== frameH) return;
-  mutateFrame(f => Array.from({ length: frameH }, (_, y) =>
-    Array.from({ length: frameW }, (_, x) => f[frameH - 1 - x][y])));
-});
+/**
+ * Turns the sprite 90° clockwise: every frame, the frame size, and the origin.
+ *
+ * **Every frame, not the one on screen**, which is a change from what this
+ * button used to do. A rotation swaps width and height, the frames of a sprite
+ * all share those, so past the square case a per-frame rotation is not a thing
+ * that can exist. Having R mean "this frame" at 32x32 and "the sprite" at
+ * 16x24 would be worse than one meaning, so it is one meaning. The flips are
+ * still per-frame; they cannot change a size, so nothing forces them to agree.
+ *
+ * It was square-only before — `if (frameW !== frameH) return;`, on a live
+ * button, saying nothing. Not a design decision: core/transform.js has the
+ * story, but in short the old code built the result with the dimensions the
+ * wrong way round and the guard was what kept that from showing. The sizes it
+ * refused include 16x24, which is this app's own DAG template.
+ *
+ * The selection goes, like any other path that changes the frame under it —
+ * the marquee is measured in the old orientation and would point at pixels
+ * that have moved.
+ */
+function rotateSprite() {
+  const T = TR();
+  deselect();
+  snapshot();
+  const prevH = frameH;
+  frames = frames.map(T.rotate90);
+  // Read from prevH before the swap: rotateOrigin wants the height the frame
+  // had, and on a square frame the wrong one gives the right answer.
+  origin = T.rotateOrigin(origin, prevH);
+  // Taken from the rotated grid rather than by swapping the two variables, so
+  // there is one source of truth for the new size and it is the pixels.
+  frameH = frames[0].length;
+  frameW = frames[0][0].length;
+  wInput.value = frameW; hInput.value = frameH;
+  frameCache = [];
+  syncOriginInputs(); sizeCanvas(); render(); renderSheet();
+}
 
 function shiftFrame(dx, dy) {
   mutateFrame(f => Array.from({ length: frameH }, (_, y) =>

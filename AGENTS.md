@@ -47,10 +47,10 @@ the same `core/` serves the desktop build, the web demo, and the export
 targets, none of which share a DOM.
 
 Load order matters and is fixed in `ui/index.html` — `tier` → `color` → `draw`
-→ `select` → `frames` → `sheet` → `mesh` → `templates` → `editor`. `select.js`
-and `frames.js` both depend on nothing, and are grouped after `draw.js` because
-the four of them are what a tool does to a drawing: plot shapes, lift a region,
-order the list. `mesh.js` is grouped beside `sheet.js` because
+→ `select` → `frames` → `transform` → `sheet` → `mesh` → `templates` →
+`editor`. `select.js`, `frames.js` and `transform.js` all depend on nothing, and
+are grouped after `draw.js` because the four of them are what a tool does to a
+drawing: plot shapes, lift a region, order the list, turn the grid. `mesh.js` is grouped beside `sheet.js` because
 the two are the pixels-to-bitmap pair and deal in the same `ImageData`; it depends on no
 other core module, so its place is a grouping and not a sequence. `tier.js` is first in `core/` because it
 reads `SpriteForge.fs`, which `ui/bridge.js` decides in `<head>`, and it holds
@@ -253,6 +253,41 @@ is the app's own accent and it is in the vendored themes, so a single rose line
 over rose art is invisible — and the frame somebody is dragging is as likely to
 be that colour as any other. It was a single line first, and sampling the strip
 mid-drag over a solid `#ff3d6e` sprite returned exactly one colour.
+
+## Rotation was square-only by accident, and it is a sprite-level operation
+
+`core/transform.js` holds the three whole-frame operations. The flips moved out
+of `ui/editor.js` unchanged and are one line each; rotation is why the file
+exists.
+
+**The old rotation built its result with the dimensions the wrong way round.**
+It produced a correctly rotated grid *at the original width and height*, so it
+could only ever be right when those were equal — and it was shipped behind
+`if (frameW !== frameH) return;` on a live button that said nothing when
+pressed. That reads like a design decision and was not one. The sizes it
+refused include **16×24, this app's own DAG template**, so the shape the editor
+is built around was the shape it could not turn.
+
+`rotate90` returns `h × w` for a `w × h` grid. That swap is the entire fix; the
+per-pixel formula was right all along.
+
+**Rotation turns every frame, and that is a change from what R used to do.** A
+turn swaps width and height, and the frames of a sprite all share those, so
+past the square case a per-frame rotation is not a thing that can exist. R
+meaning "this frame" at 32×32 and "the sprite" at 16×24 would be worse than one
+meaning, so it is one meaning. The flips stay per-frame: they cannot change a
+size, so nothing forces them to agree.
+
+`rotateOrigin` is separate from the pixel formula and is not it with the
+offsets removed. The origin is a **point**, not a pixel — it sits at `y === h`
+for a sprite standing on its bottom row, one past the last pixel — so a
+clockwise turn sends `(0, 0)` to `(h, 0)`, the top-right. It takes the height
+the frame had *before* the turn; passing the new one mirrors the result on a
+non-square frame and is exactly right on a square one, which is the second way
+a suite that only turned squares would have missed the bug.
+
+The selection is dropped on a turn, like every other path that changes the
+frame under it: the marquee is measured in the old orientation.
 
 ## The Godot target writes source, not an image
 

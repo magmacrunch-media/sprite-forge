@@ -36,6 +36,8 @@ reduced in a browser at
       follows you between sprites
 - [x] Frame reordering — two buttons, `Shift`+`[` / `]`, or drag a frame in the
       sheet strip
+- [x] Rotation at any frame size — turns the sprite, the dimensions and the
+      origin together, so a 16×24 is no longer a sprite that cannot be turned
 
 ## Two builds, one codebase
 
