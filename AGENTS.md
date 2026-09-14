@@ -343,6 +343,47 @@ stepping an index itself. Nothing drifts, a rate change lands where the tick
 says, and pressing play on a held frame starts on its first beat via
 `tickOfFrame` instead of partway through it.
 
+## The onion skin reaches both ways, and says which way is which
+
+`core/frames.js`'s `ghosts()` answers which frames to draw around the current
+one and how solid each should be; `ui/editor.js` paints them. It sits with the
+frame order and the holds because it is the same kind of question — a fact about
+the sequence, not about anyone's pixels.
+
+**Both directions.** Onion skinning is as much about the pose you are heading
+for as the one you came from. That is also what forces the tints: at depth 1 a
+single grey ghost is unambiguous, and at depth 2 in two directions it is not.
+The ghosts carry the app's own accent pair — rose `#ff3d6e` behind, cyan
+`#00f5ff` ahead — laid *over* the art at 0.55 rather than replacing it, so a
+ghost still shows where the eye was while the cast says which way it is going. A
+silhouette would give the direction and lose the detail, and the detail is most
+of why you are looking.
+
+**It wraps.** The frame before the first is the last, which is exactly the join
+a walk cycle lives or dies on.
+
+**A frame is never ghosted twice, and never over itself.** Reach far enough on a
+short loop and the two directions start landing on frames the other has already
+claimed — on four frames, three steps back is one step forward. Each frame is
+taken once, by the shortest way round, at that distance's alpha. Without it a
+frame is drawn twice at two alphas and reads as more solid than its neighbours
+for no reason on screen; and past `count - 1` the current frame is ghosted over
+itself, which reads as the art being wrong rather than the setting being high.
+
+The nearest ghost keeps `ONION_ALPHA` (0.3) at every depth, which is the value
+the single-frame version used, so depth 1 looks exactly as onion skin always
+did. The alpha falls off linearly from there.
+
+`ghosts()` returns nearest-first because that is the order it reads in; the
+renderer walks it backwards so the closest ghost is painted last and lands on
+top. The tint is applied through one scratch canvas redrawn per ghost rather
+than a second cache keyed by frame and tint — eight blits of at most 128×128 is
+nothing beside the two full-frame loops `render()` already runs, and a cache
+there would be a second thing to invalidate everywhere `frameCache` is cleared.
+
+The depth button is disabled while the ghosts are off, for the reason the frame
+buttons are: a live control that changes nothing you can see is the same lie.
+
 ## The Godot target writes source, not an image
 
 `core/targets/godot.js` is the odd one out and meant to be. The other four hand

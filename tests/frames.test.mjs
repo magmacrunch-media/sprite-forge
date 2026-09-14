@@ -146,6 +146,66 @@ export default function (SF) {
             eq(F.frameAtTick(h, F.tickOfFrame(h, i)), i, `tick ${i} round-trips`);
     });
 
+    // ── onion skin ──────────────────────────────────────────────
+
+    const at = (g) => g.map(x => x.index);
+    const deltas = (g) => g.map(x => x.delta);
+
+    test('depth 1 is one frame either side, which is what it always was', () => {
+        const g = F.ghosts(5, 2, 1);
+        eq(at(g), [1, 3], 'the neighbours');
+        eq(deltas(g), [-1, 1], 'one behind, one ahead');
+        eq(g.map(x => x.alpha), [F.ONION_ALPHA, F.ONION_ALPHA], 'at the old alpha');
+    });
+
+    test('depth reaches both ways and fades with distance', () => {
+        const g = F.ghosts(9, 4, 3);
+        eq(at(g), [3, 5, 2, 6, 1, 7], 'nearest pair first');
+        eq(deltas(g), [-1, 1, -2, 2, -3, 3], 'alternating');
+        const a = g.map(x => +x.alpha.toFixed(3));
+        eq(a, [0.3, 0.3, 0.2, 0.2, 0.1, 0.1], 'the nearest keeps the full alpha');
+    });
+
+    // A walk cycle's hardest join is the last frame back to the first, so the
+    // ghosts have to wrap or the one place you most need them is the one place
+    // they are not.
+    test('ghosts wrap around the loop', () => {
+        eq(at(F.ghosts(4, 0, 1)), [3, 1], 'from the first frame');
+        eq(at(F.ghosts(4, 3, 1)), [2, 0], 'and from the last');
+    });
+
+    // Reach far enough on a short loop and the two directions start landing on
+    // frames the other already claimed. Each frame gets ghosted once, by the
+    // shortest way round.
+    test('a frame is never ghosted twice, however deep the reach', () => {
+        const g = F.ghosts(4, 0, 4);
+        eq(at(g), [3, 1, 2], 'three ghosts for four frames');
+        eq(new Set(at(g)).size, 3, 'all distinct');
+        eq(deltas(g), [-1, 1, -2], 'frame 2 came the short way, not as -3 or +3');
+    });
+
+    test('the frame on the canvas is never among its own ghosts', () => {
+        for (const count of [2, 3, 4, 5, 8])
+            for (let i = 0; i < count; i++)
+                for (const depth of [1, 2, 3, 4]) {
+                    const g = F.ghosts(count, i, depth);
+                    ok(!at(g).includes(i), `${count} frames, at ${i}, depth ${depth}`);
+                    eq(at(g).length, new Set(at(g)).size, 'no repeats');
+                    ok(g.length <= count - 1, 'never more ghosts than there are other frames');
+                }
+    });
+
+    test('a single frame has nothing to ghost, and says so with an empty list', () => {
+        eq(F.ghosts(1, 0, 3), [], 'one frame');
+        eq(F.ghosts(0, 0, 3), [], 'none at all');
+    });
+
+    test('a depth that is not a depth falls back to 1 rather than drawing nothing', () => {
+        for (const bad of [0, -3, undefined, null, NaN, 'x'])
+            eq(at(F.ghosts(5, 2, bad)), [1, 3], String(bad));
+        eq(at(F.ghosts(9, 4, 99)).length, 2 * F.MAX_ONION, 'and too deep is clamped to MAX_ONION');
+    });
+
     test('holds are reordered by the same call the frames are', () => {
         // The editor moves both with one index pair, which is the only reason
         // they cannot come apart.

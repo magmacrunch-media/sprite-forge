@@ -69,6 +69,7 @@
         { key: 'd', action: 'view:grid' },
         { key: 'm', action: 'view:mirror' },
         { key: 'n', action: 'view:onion' },
+        { key: 'n', shift: true, action: 'view:onion-depth' },
         { key: 'p', action: 'view:dock' },
         { key: '-', action: 'view:zoom-out' },
         { key: '=', action: 'view:zoom-in' },

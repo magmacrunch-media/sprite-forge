@@ -60,6 +60,12 @@ const MIN_SIZE = 1, MAX_SIZE = 128, MAX_FRAMES = 64, MAX_SWATCHES = 32;
 const ZOOM_STEPS = [2, 3, 4, 6, 8, 12, 16, 24, 32, 48];
 const SHAPE_TOOLS = new Set(['line', 'rect', 'ellipse']);
 const ANIM_SCALES = [1, 2, 4, 8];
+// The onion skin's two tints: the app's own accent pair, so which ghosts are
+// behind you and which are ahead needs no legend. Laid over the art rather
+// than replacing it — at this strength a ghost still shows where the eye was,
+// which is most of why you are looking at it, while the cast says which way it
+// is going. A silhouette would say the direction and lose the detail.
+const ONION_BACK = '#ff3d6e', ONION_FWD = '#00f5ff', ONION_TINT = 0.55;
 const SECTION_KEY = 'sprite-forge-sections';
 const VIEW_KEY = 'sprite-forge-view';
 // Breathing room so a fitted sprite is not flush against the stage's edges.
@@ -83,6 +89,7 @@ let zoom = 16;
 // on resize but not on every repaint. null until the stage has a height.
 let fittedFor = null;
 let mirrorX = false, onionSkin = false, gridOn = true, dockOn = true;
+let onionDepth = 1;             // frames reached in each direction; core/frames.js caps it
 let painting = false;
 let lastPos = null;             // previous pencil/erase position, for stroke interpolation
 let shapeStart = null, shapeEnd = null;
@@ -146,6 +153,7 @@ const canvasDims = document.getElementById('canvas-dims');
 const canvasStage = document.getElementById('canvas-stage');
 const dock = document.getElementById('dock');
 const dockToggle = document.getElementById('dock-toggle');
+const onionDepthBtn = document.getElementById('onion-depth');
 const dimStat = document.getElementById('dimStat');
 const frameStat = document.getElementById('frameStat');
 const sidebar = document.getElementById('sidebar');
@@ -306,10 +314,16 @@ function render() {
     }
   }
   if (onionSkin && frames.length > 1) {
-    const prev = (frameIndex - 1 + frames.length) % frames.length;
-    ctx.globalAlpha = 0.3;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(cachedFrame(prev), 0, 0, canvas.width, canvas.height);
+    const gs = FR.ghosts(frames.length, frameIndex, onionDepth);
+    // Farthest first, so the nearest ghost is painted last and sits on top of
+    // the ones further out. ghosts() hands them back the other way round
+    // because nearest-first is the order it reads in.
+    for (let i = gs.length - 1; i >= 0; i--) {
+      ctx.globalAlpha = gs[i].alpha;
+      ctx.drawImage(tintedFrame(gs[i].index, gs[i].delta < 0 ? ONION_BACK : ONION_FWD),
+        0, 0, canvas.width, canvas.height);
+    }
     ctx.globalAlpha = 1;
   }
   for (let y = 0; y < frameH; y++)
@@ -398,6 +412,34 @@ function cachedFrame(i) {
     frameCache[i] = c;
   }
   return frameCache[i];
+}
+
+// One scratch canvas, redrawn per ghost rather than a second cache keyed by
+// frame and tint. Eight ghosts at the deepest setting is eight blits of at most
+// 128x128 — next to nothing beside the two full-frame loops render() already
+// runs — and a cache here would be a second thing to remember to invalidate
+// everywhere frameCache is cleared, which is the kind of bookkeeping that
+// eventually shows somebody last week's art.
+const onionScratch = document.createElement('canvas');
+
+/** `cachedFrame(i)` with a colour cast over its opaque pixels. */
+function tintedFrame(i, tint) {
+  const src = cachedFrame(i);
+  if (onionScratch.width !== src.width) onionScratch.width = src.width;
+  if (onionScratch.height !== src.height) onionScratch.height = src.height;
+  const c = onionScratch.getContext('2d');
+  c.globalCompositeOperation = 'source-over';
+  c.clearRect(0, 0, onionScratch.width, onionScratch.height);
+  c.drawImage(src, 0, 0);
+  // source-atop keeps the fill inside what is already drawn, so transparent
+  // pixels stay transparent and the tint does not become a coloured rectangle.
+  c.globalCompositeOperation = 'source-atop';
+  c.globalAlpha = ONION_TINT;
+  c.fillStyle = tint;
+  c.fillRect(0, 0, onionScratch.width, onionScratch.height);
+  c.globalAlpha = 1;
+  c.globalCompositeOperation = 'source-over';
+  return onionScratch;
 }
 
 function renderSheet() {
@@ -548,6 +590,9 @@ animFpsInput.addEventListener('change', () => {
   animFpsInput.value = anim.fps;
   if (anim.playing) setPlaying(true);
 });
+
+if (onionDepthBtn) onionDepthBtn.addEventListener('click', () =>
+  setOnionDepth(onionDepth % FR.MAX_ONION + 1));
 
 animScaleBtn.addEventListener('click', () => {
   anim.scale = ANIM_SCALES[(ANIM_SCALES.indexOf(anim.scale) + 1) % ANIM_SCALES.length];
@@ -994,7 +1039,20 @@ const onionToggle = document.getElementById('onion-toggle');
 const gridToggle = document.getElementById('grid-toggle');
 
 function setMirror(v) { mirrorX = v; mirrorToggle.classList.toggle('active', v); render(); saveViewPrefs(); }
-function setOnion(v) { onionSkin = v; onionToggle.classList.toggle('active', v); render(); saveViewPrefs(); }
+function setOnion(v) {
+  onionSkin = v;
+  onionToggle.classList.toggle('active', v);
+  // Depth means nothing with the ghosts switched off, and a live control that
+  // changes nothing you can see is the same lie the frame buttons used to tell.
+  if (onionDepthBtn) onionDepthBtn.disabled = !v;
+  render(); saveViewPrefs();
+}
+
+function setOnionDepth(n) {
+  onionDepth = Math.max(1, Math.min(FR.MAX_ONION, n));
+  if (onionDepthBtn) onionDepthBtn.textContent = String(onionDepth);
+  render(); saveViewPrefs();
+}
 function setGrid(v) { gridOn = v; gridToggle.classList.toggle('active', v); render(); saveViewPrefs(); }
 
 function setDock(v) { dockOn = v; dock.hidden = !v; dockToggle.classList.toggle('active', v); saveViewPrefs(); }
@@ -1484,6 +1542,10 @@ const KEY_ACTIONS = {
   'view:grid': () => setGrid(!gridOn),
   'view:mirror': () => setMirror(!mirrorX),
   'view:onion': () => setOnion(!onionSkin),
+  // Shift deepens rather than toggles, the same relationship Shift has with
+  // the bracket pair. Only while the ghosts are on: with them off it would be
+  // a key that changes a number nothing is drawing.
+  'view:onion-depth': () => { if (onionSkin) setOnionDepth(onionDepth % FR.MAX_ONION + 1); },
   'view:dock': () => setDock(!dockOn),
   'view:zoom-out': () => setZoom([...ZOOM_STEPS].reverse().find(s => s < zoom) ?? zoom),
   'view:zoom-in': () => setZoom(ZOOM_STEPS.find(s => s > zoom) ?? zoom),
@@ -1725,7 +1787,7 @@ sections.forEach(d => d.addEventListener('toggle', () => {
 // ── View preferences ────────────────────────────────────
 
 function saveViewPrefs() {
-  writePrefs(VIEW_KEY, { zoom, gridOn, mirrorX, onionSkin, dockOn, sidebarW: sidebar.offsetWidth });
+  writePrefs(VIEW_KEY, { zoom, gridOn, mirrorX, onionSkin, onionDepth, dockOn, sidebarW: sidebar.offsetWidth });
 }
 
 function loadViewPrefs() {
@@ -1735,12 +1797,20 @@ function loadViewPrefs() {
   if (typeof p.gridOn === 'boolean') gridOn = p.gridOn;
   if (typeof p.mirrorX === 'boolean') mirrorX = p.mirrorX;
   if (typeof p.onionSkin === 'boolean') onionSkin = p.onionSkin;
+  if (Number.isInteger(p.onionDepth)) onionDepth = Math.max(1, Math.min(FR.MAX_ONION, p.onionDepth));
   if (typeof p.dockOn === 'boolean') dockOn = p.dockOn;
   if (p.sidebarW) setSidebarWidth(p.sidebarW);
   zoomLabel.innerHTML = `${zoom}&times;`;
   gridToggle.classList.toggle('active', gridOn);
   mirrorToggle.classList.toggle('active', mirrorX);
   onionToggle.classList.toggle('active', onionSkin);
+  // The markup already reads "1" and disabled, which is the no-prefs default —
+  // this is for the run that restores something else. The early return above
+  // means it is skipped on a first run, and correctly.
+  if (onionDepthBtn) {
+    onionDepthBtn.textContent = String(onionDepth);
+    onionDepthBtn.disabled = !onionSkin;
+  }
   dock.hidden = !dockOn;
   dockToggle.classList.toggle('active', dockOn);
 }

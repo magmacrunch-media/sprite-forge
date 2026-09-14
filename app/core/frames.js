@@ -135,8 +135,67 @@ window.SpriteForge.frames = (function () {
         return t;
     }
 
+    /** How deep the onion skin may go in each direction. Four back and four
+     *  forward is already eight ghosts; past that the canvas is soup and the
+     *  control is a number nobody moves twice. */
+    const MAX_ONION = 4;
+
+    /** The alpha the nearest ghost is drawn at — the value the single-frame
+     *  onion skin used before it had a depth, so depth 1 looks exactly as it
+     *  always did. */
+    const ONION_ALPHA = 0.3;
+
+    /**
+     * Which frames to ghost around `index`, and how solid each one should be.
+     *
+     * Both directions: onion skinning is as much about the pose you are heading
+     * for as the one you came from, and the editor tints them apart rather than
+     * leaving you to guess which grey is which.
+     *
+     * Wraps, because these animations loop — the frame before the first IS the
+     * last, and lining the two up is exactly the join a walk cycle lives or
+     * dies on.
+     *
+     * @param count how many frames the sprite has
+     * @param index the frame on the canvas, which is never among the ghosts
+     * @param depth how many to reach in each direction, clamped to MAX_ONION
+     * @returns [{ index, delta, alpha }], **nearest first**, `delta` negative
+     *   for the frames behind. Empty when there is nothing to ghost. Nearest
+     *   first because that is the order it reads in; a caller painting them
+     *   wants the reverse, so the closest ghost ends up on top.
+     */
+    function ghosts(count, index, depth) {
+        const d = Math.max(1, Math.min(MAX_ONION, Math.floor(depth) || 1));
+        if (!Number.isInteger(count) || count < 2) return [];
+        // A ghost is any frame but the one on screen, so a 3-frame sprite has
+        // at most 2 of them however deep the control is wound. Without this a
+        // depth of 4 on a 3-frame sprite draws the current frame over itself,
+        // twice, at two different alphas — which reads as the art being wrong
+        // rather than the setting being too high.
+        const reach = Math.min(d, count - 1);
+        const out = [];
+        // Once per frame, at the alpha of the SHORTEST way round to it. Reach
+        // far enough on a short loop and the two directions start landing on
+        // frames the other has already claimed — on four frames, three steps
+        // back is one step forward. Without this they are ghosted twice, at two
+        // different alphas, which is a frame that looks more solid than its
+        // neighbours for no reason on screen.
+        const seen = new Set([index]);
+        for (let dist = 1; dist <= reach; dist++) {
+            const alpha = ONION_ALPHA * (reach - dist + 1) / reach;
+            for (const delta of [-dist, dist]) {
+                const at = ((index + delta) % count + count) % count;
+                if (seen.has(at)) continue;
+                seen.add(at);
+                out.push({ index: at, delta, alpha });
+            }
+        }
+        return out;
+    }
+
     return {
         reorder, canMove,
         MAX_HOLD, normalizeHolds, evenlyHeld, totalTicks, frameAtTick, tickOfFrame,
+        MAX_ONION, ONION_ALPHA, ghosts,
     };
 }());

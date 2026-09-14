@@ -127,7 +127,8 @@
                 <span class="tb-sep"></span>
                 <button id="grid-toggle" class="tool-btn toggle active" title="Toggle pixel grid (D)">&#9638; GRID</button>
                 <button id="mirror-toggle" class="tool-btn toggle" title="Mirror drawing across the vertical center (M)">&#8651; MIRROR</button>
-                <button id="onion-toggle" class="tool-btn toggle" title="Onion skin — ghost of the previous frame (N)">&#9678; ONION</button>
+                <button id="onion-toggle" class="tool-btn toggle" title="Onion skin — ghosts of the frames either side, rose behind and cyan ahead (N)">&#9678; ONION</button>
+                <button id="onion-depth" class="tool-btn" disabled title="How many frames the ghosts reach in each direction (Shift+N)">1</button>
                 <span class="tb-sep"></span>
                 <button id="dock-toggle" class="tool-btn toggle active" title="Show the preview dock (P)">&#9707; PREVIEW</button>
                 <span class="tb-sep"></span>
@@ -531,7 +532,12 @@
                 <dt><kbd>&minus;</kbd> <kbd>=</kbd></dt><dd>Zoom out / in</dd>
                 <dt><kbd>D</kbd></dt><dd>Pixel grid</dd>
                 <dt><kbd>M</kbd></dt><dd>Mirror across the vertical centre</dd>
-                <dt><kbd>N</kbd></dt><dd>Onion skin</dd>
+                <dt><kbd>N</kbd></dt><dd>Onion skin &mdash; ghosts of the frames either side of this one,
+                    rose for the ones behind and cyan for the ones ahead. It wraps, so the
+                    last frame ghosts against the first.</dd>
+                <dt><kbd>Shift</kbd><kbd>N</kbd></dt><dd>How far the ghosts reach, 1 to 4 each way.
+                    They fade with distance, and a frame is never ghosted twice however deep
+                    you wind it.</dd>
             </dl>
 
             <div class="sub-label">project</div>
