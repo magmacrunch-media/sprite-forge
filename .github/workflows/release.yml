@@ -54,12 +54,12 @@ jobs:
 
     steps:
       - name: Check out sprite-forge
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: sprite-forge
 
       - name: Check out magma-kit beside it
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: magmacrunch-media/magma-kit
           path: magma-kit
@@ -72,7 +72,7 @@ jobs:
             || { echo "magma-kit/crate is missing — the path dep cannot resolve"; exit 1; }
           echo "magma-kit $(grep -m1 '^version' magma-kit/crate/Cargo.toml) is in place"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -120,7 +120,7 @@ jobs:
       # Always kept, tag or not: on a dispatch run this is the only output, and
       # on a tagged run it is what you compare against the published asset.
       - name: Keep the bundles
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sprite-forge-${{ matrix.label }}
           if-no-files-found: error
