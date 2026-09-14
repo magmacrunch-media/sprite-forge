@@ -22,6 +22,16 @@
 const { shadeHex } = window.SpriteForge.color;
 const { bresenham, shapePixels } = window.SpriteForge.draw;
 const { framesToSheet, sheetToFrames } = window.SpriteForge.sheet;
+// Whole modules rather than named exports, because the call sites read better
+// as SEL.extract and FR.frameAtTick than as bare verbs. Bound directly like
+// the three above: core/ is entirely loaded before this file runs. They were
+// `() => window.SpriteForge.x` for a while, which is the form the two ui/
+// accessors below need and core/ never does — and it cost a crash, because one
+// use of FR runs while this file is still being evaluated and the arrow was
+// declared further down it.
+const SEL = window.SpriteForge.select;
+const FR = window.SpriteForge.frames;
+const TR = window.SpriteForge.transform;
 
 // The two ui/ modules that load after this one, read at call time and never
 // captured: they do not exist yet while this file is being evaluated. Both are
@@ -92,7 +102,16 @@ let dragClip = null, dragBase = null, dragFrom = null, dragTo = null;
 // a hand in one sprite to paste into another is the point of having a clipboard
 // rather than a duplicate button.
 let clipboard = null;
-let anim = { playing: false, fps: 8, scale: 4, index: 0, timer: null };
+// `tick` rather than a frame index: with holds, which frame is up is a
+// question about the clock, and core/frames.js answers it. The timer only
+// counts. That also means a frame-rate change or a scrub cannot land the
+// preview somewhere the tick does not agree with.
+let anim = { playing: false, fps: 8, scale: 4, tick: 0, timer: null };
+// One entry per frame, how many ticks that frame stays up. Kept beside
+// `frames` rather than inside one, because a frame is pixels; see
+// core/frames.js. Every path that changes the length of `frames` changes this
+// too, and updateFrameLabel is the net that catches one that forgot.
+let holds = [1];
 let frameCache = [];            // 1:1 offscreen canvas per frame, for previews
 // Set when a character template is loaded: { id, slots: {name: baseHex},
 // steps: {name: [shadeSteps]} }. Slot identity is not stored per pixel, so this
@@ -121,6 +140,7 @@ const btnFrameDup = document.getElementById('frame-dup');
 const btnFrameDel = document.getElementById('frame-del');
 const btnFrameLeft = document.getElementById('frame-left');
 const btnFrameRight = document.getElementById('frame-right');
+const frameHoldInput = document.getElementById('frame-hold');
 const toolReadout = document.getElementById('tool-readout');
 const canvasDims = document.getElementById('canvas-dims');
 const canvasStage = document.getElementById('canvas-stage');
@@ -150,6 +170,13 @@ function frame() { return frames[frameIndex]; }
 function updateFrameLabel() {
   frameLabel.textContent = `${frameIndex + 1} / ${frames.length}`;
   frameStat.textContent = `${frames.length} FRAME${frames.length === 1 ? '' : 'S'}`;
+  // The four paths that change the frame count each move the holds with them,
+  // which is the only way a hold can stay attached to the right frame. This is
+  // the net under that, for the fifth: a length mismatch here would be an
+  // index into undefined in the tick arithmetic, and one entry too few is a
+  // frame whose timing quietly becomes 1 rather than a crash anybody notices.
+  if (holds.length !== frames.length) holds = FR.normalizeHolds(holds, frames.length);
+  if (frameHoldInput) frameHoldInput.value = holds[frameIndex];
   updateFrameButtons();
 }
 
@@ -167,7 +194,6 @@ function updateFrameLabel() {
  * of the three possible answers, and it was the one given.
  */
 function updateFrameButtons() {
-  const FR = window.SpriteForge.frames;
   const full = frames.length >= MAX_FRAMES;
   btnFrameAdd.disabled = full;
   btnFrameDup.disabled = full;
@@ -185,7 +211,7 @@ function updateFrameButtons() {
 // describing art that is no longer there.
 function currentState() {
   return JSON.parse(JSON.stringify({
-    frames, frameIndex, origin, frameW, frameH,
+    frames, frameIndex, origin, frameW, frameH, holds,
     palette, selectedSwatch, selectedColor, activeTemplate,
   }));
 }
@@ -193,6 +219,10 @@ function currentState() {
 function restore(s) {
   deselect();
   frames = s.frames; frameIndex = s.frameIndex; origin = s.origin;
+  // Older entries on the stack predate holds within a single session — a
+  // snapshot taken before this file was reloaded. normalizeHolds covers that
+  // the same way it covers a .forge that predates them.
+  holds = FR.normalizeHolds(s.holds, s.frames.length);
   frameW = s.frameW; frameH = s.frameH;
   palette = s.palette; selectedSwatch = s.selectedSwatch; selectedColor = s.selectedColor;
   activeTemplate = s.activeTemplate;
@@ -377,6 +407,21 @@ function renderSheet() {
   sheetCtx.imageSmoothingEnabled = false;
   for (let i = 0; i < frames.length; i++)
     sheetCtx.drawImage(cachedFrame(i), i * frameW * scale, 0, frameW * scale, frameH * scale);
+  // A held frame says so on the strip. Without this a hold is a number in a
+  // box on the other side of the panel, and the one place anybody looks at the
+  // shape of an animation is here.
+  sheetCtx.font = '9px monospace';
+  sheetCtx.textBaseline = 'top';
+  for (let i = 0; i < frames.length; i++) {
+    if (holds[i] <= 1) continue;
+    const label = '\u00d7' + holds[i];
+    const w = sheetCtx.measureText(label).width;
+    const x = i * frameW * scale + 2, y = 2;
+    sheetCtx.fillStyle = 'rgba(0,0,0,0.72)';
+    sheetCtx.fillRect(x, y, w + 3, 11);
+    sheetCtx.fillStyle = '#f0ead8';
+    sheetCtx.fillText(label, x + 2, y + 1);
+  }
   sheetCtx.strokeStyle = '#3b82f6'; sheetCtx.lineWidth = 2;
   sheetCtx.strokeRect(frameIndex * frameW * scale + 1, 1, frameW * scale - 2, frameH * scale - 2);
   // Where a frame being dragged would land. Drawn only once it has actually
@@ -451,7 +496,7 @@ function renderAnim() {
   if (animCanvas.height !== h) animCanvas.height = h;
   animCtx.imageSmoothingEnabled = false;
   animCtx.clearRect(0, 0, w, h);
-  const i = anim.playing ? anim.index % frames.length : frameIndex;
+  const i = anim.playing ? FR.frameAtTick(holds, anim.tick) : frameIndex;
   animCtx.drawImage(cachedFrame(i), 0, 0, w, h);
   // The surface preview rides the same beat as the animation one, so it
   // follows an edit and also plays. Read at call time and never captured:
@@ -466,13 +511,34 @@ function setPlaying(p) {
   animPlayBtn.innerHTML = p ? '&#10074;&#10074;' : '&#9654;';
   clearInterval(anim.timer); anim.timer = null;
   if (p) {
-    anim.index = frameIndex;
+    // From the current frame's FIRST beat, not partway through it: pressing
+    // play on a frame held for four should show all four.
+    anim.tick = FR.tickOfFrame(holds, frameIndex);
     anim.timer = setInterval(() => {
-      anim.index = (anim.index + 1) % frames.length;
+      anim.tick++;
       renderAnim();
     }, 1000 / anim.fps);
   }
   renderAnim();
+}
+
+/** Sets the current frame's hold. Snapshots, because it is an edit to the
+ *  animation exactly as a redrawn pixel is an edit to a frame. */
+function setHold(n) {
+  const v = Math.max(1, Math.min(FR.MAX_HOLD, Math.floor(n) || 1));
+  if (holds[frameIndex] === v) return;
+  snapshot();
+  holds[frameIndex] = v;
+  // Restart the clock rather than letting it run on into a cycle that is now a
+  // different length — otherwise the preview jumps to whatever frame the old
+  // tick happens to land on under the new holds.
+  if (anim.playing) setPlaying(true);
+  renderSheet(); updateFrameLabel();
+}
+
+if (frameHoldInput) {
+  frameHoldInput.max = FR.MAX_HOLD;
+  frameHoldInput.addEventListener('change', () => setHold(parseInt(frameHoldInput.value, 10)));
 }
 
 animPlayBtn.addEventListener('click', () => setPlaying(!anim.playing));
@@ -495,7 +561,6 @@ animScaleBtn.addEventListener('click', () => {
 // core/select.js, and tested there. What is here is the part that needs a
 // mouse, a canvas and an undo stack.
 
-const SEL = () => window.SpriteForge.select;
 
 // The rect drawn while a marquee is still being dragged. Held separately from
 // `selection` so that a drag which ends up empty leaves the previous selection
@@ -533,22 +598,22 @@ function selectAll() {
 }
 
 function copySelection() {
-  if (SEL().isEmpty(selection)) { Toast.show('NOTHING SELECTED'); return false; }
-  clipboard = SEL().extract(frame(), selection);
+  if (SEL.isEmpty(selection)) { Toast.show('NOTHING SELECTED'); return false; }
+  clipboard = SEL.extract(frame(), selection);
   return true;
 }
 
 function cutSelection() {
   if (!copySelection()) return;
   snapshot();
-  putFrame(SEL().clearRegion(frame(), selection));
+  putFrame(SEL.clearRegion(frame(), selection));
   Toast.show('CUT');
 }
 
 function deleteSelection() {
-  if (SEL().isEmpty(selection)) { Toast.show('NOTHING SELECTED'); return; }
+  if (SEL.isEmpty(selection)) { Toast.show('NOTHING SELECTED'); return; }
   snapshot();
-  putFrame(SEL().clearRegion(frame(), selection));
+  putFrame(SEL.clearRegion(frame(), selection));
 }
 
 /**
@@ -561,8 +626,8 @@ function pasteClipboard() {
   setTool('select');
   const at = selection ? { x: selection.x, y: selection.y } : { x: 0, y: 0 };
   snapshot();
-  putFrame(SEL().stamp(frame(), clipboard, at.x, at.y));
-  selection = SEL().clamp(
+  putFrame(SEL.stamp(frame(), clipboard, at.x, at.y));
+  selection = SEL.clamp(
     { x: at.x, y: at.y, w: clipboard[0].length, h: clipboard.length }, frameW, frameH);
   render();
 }
@@ -571,7 +636,7 @@ function pasteClipboard() {
  *  press has no beginning and end to float between. */
 function nudgeSelection(dx, dy) {
   snapshot();
-  const r = SEL().move(frame(), selection, dx, dy);
+  const r = SEL.move(frame(), selection, dx, dy);
   selection = r.rect;
   putFrame(r.frame);
 }
@@ -624,12 +689,12 @@ canvas.addEventListener('mousedown', (e) => {
     if (inSelection(c.x, c.y)) {
       // Lift once. See the dragClip declaration for why not per-move.
       beginStroke();
-      dragClip = SEL().extract(frame(), selection);
-      dragBase = SEL().clearRegion(frame(), selection);
+      dragClip = SEL.extract(frame(), selection);
+      dragBase = SEL.clearRegion(frame(), selection);
       dragFrom = c; dragTo = c;
     } else {
       marqueeStart = c;
-      lastMarquee = SEL().rectFrom(c, c, frameW, frameH);
+      lastMarquee = SEL.rectFrom(c, c, frameW, frameH);
     }
     render();
     return;
@@ -661,7 +726,7 @@ canvas.addEventListener('mousemove', (e) => {
   if (!painting) return;
   const c = pixelAt(e);
   if (dragClip) { dragTo = c; render(); }
-  else if (marqueeStart) { lastMarquee = SEL().rectFrom(marqueeStart, c, frameW, frameH); render(); }
+  else if (marqueeStart) { lastMarquee = SEL.rectFrom(marqueeStart, c, frameW, frameH); render(); }
   else if (shapeStart) { shapeEnd = c; render(); }
   else if (tool === 'pencil') paintAt(c.x, c.y, selectedColor);
   else if (tool === 'erase') paintAt(c.x, c.y, null);
@@ -708,8 +773,8 @@ function endMove() {
   painting = false;
   if (dx || dy) {
     commitStroke();
-    selection = SEL().clamp(landed, frameW, frameH);
-    putFrame(SEL().stamp(base, clip, landed.x, landed.y));
+    selection = SEL.clamp(landed, frameW, frameH);
+    putFrame(SEL.stamp(base, clip, landed.x, landed.y));
   } else {
     // Pressed and released without moving. Nothing changed, so cancelStroke
     // below throws the snapshot away and the undo stack never hears about it.
@@ -755,10 +820,8 @@ function mutateFrame(fn) {
   render(); renderSheet();
 }
 
-const TR = () => window.SpriteForge.transform;
-
-document.getElementById('flip-h').addEventListener('click', () => mutateFrame(TR().flipH));
-document.getElementById('flip-v').addEventListener('click', () => mutateFrame(TR().flipV));
+document.getElementById('flip-h').addEventListener('click', () => mutateFrame(TR.flipH));
+document.getElementById('flip-v').addEventListener('click', () => mutateFrame(TR.flipV));
 document.getElementById('rot-90').addEventListener('click', () => rotateSprite());
 
 /**
@@ -782,7 +845,7 @@ document.getElementById('rot-90').addEventListener('click', () => rotateSprite()
  * that have moved.
  */
 function rotateSprite() {
-  const T = TR();
+  const T = TR;
   deselect();
   snapshot();
   const prevH = frameH;
@@ -999,6 +1062,7 @@ document.getElementById('frame-add').addEventListener('click', () => {
   if (frames.length >= MAX_FRAMES) return;
   snapshot();
   frames.splice(frameIndex + 1, 0, blankFrame());
+  holds.splice(frameIndex + 1, 0, 1);
   frameIndex++; frameCache = [];
   render(); renderSheet(); updateFrameLabel();
 });
@@ -1007,6 +1071,8 @@ document.getElementById('frame-dup').addEventListener('click', () => {
   if (frames.length >= MAX_FRAMES) return;
   snapshot();
   frames.splice(frameIndex + 1, 0, JSON.parse(JSON.stringify(frame())));
+  // A duplicate is a copy of the frame, and its timing is part of the frame.
+  holds.splice(frameIndex + 1, 0, holds[frameIndex]);
   frameIndex++; frameCache = [];
   render(); renderSheet(); updateFrameLabel();
 });
@@ -1025,9 +1091,13 @@ document.getElementById('frame-dup').addEventListener('click', () => {
  * anywhere.
  */
 function moveFrameTo(to) {
-  const next = window.SpriteForge.frames.reorder(frames, frameIndex, to);
+  const next = FR.reorder(frames, frameIndex, to);
   if (!next) return;
   snapshot();
+  // The same index pair, which is the only reason a hold cannot come away from
+  // the frame it belongs to. reorder already said this move is a real one, so
+  // the second call cannot be the null.
+  holds = FR.reorder(holds, frameIndex, to);
   frames = next;
   frameIndex = Math.max(0, Math.min(frames.length - 1, to));
   // Cleared rather than permuted alongside. It is the same permutation and
@@ -1045,6 +1115,7 @@ document.getElementById('frame-del').addEventListener('click', () => {
   if (frames.length <= 1) return;
   snapshot();
   frames.splice(frameIndex, 1);
+  holds.splice(frameIndex, 1);
   frameIndex = Math.min(frameIndex, frames.length - 1); frameCache = [];
   render(); renderSheet(); updateFrameLabel();
 });
@@ -1718,6 +1789,7 @@ function putSprite(sprite) {
   frameW = sprite.w; frameH = sprite.h;
   wInput.value = frameW; hInput.value = frameH;
   frames = sprite.frames.map(f => f.map(row => [...row]));
+  holds = FR.normalizeHolds(sprite.holds, frames.length);
   frameIndex = 0; frameCache = [];
   origin = { x: Math.min(sprite.origin.x, frameW), y: Math.min(sprite.origin.y, frameH) };
   if (sprite.fps) { anim.fps = sprite.fps; animFpsInput.value = sprite.fps; }
@@ -1742,6 +1814,7 @@ window.SpriteForge.editor = {
       w: frameW, h: frameH,
       origin: { x: origin.x, y: origin.y },
       fps: anim.fps,
+      holds: [...holds],
       frames: frames.map(f => f.map(row => [...row])),
     };
   },

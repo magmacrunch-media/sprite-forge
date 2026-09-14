@@ -55,8 +55,15 @@ the two are the pixels-to-bitmap pair and deal in the same `ImageData`; it depen
 other core module, so its place is a grouping and not a sequence. `tier.js` is first in `core/` because it
 reads `SpriteForge.fs`, which `ui/bridge.js` decides in `<head>`, and it holds
 that answer for everything below. `sheet.js` and `project.js` both read
-`SpriteForge.color` at IIFE time, and `editor.js` binds every core export at
-its top.
+`SpriteForge.color` at IIFE time; `project.js` also reads `SpriteForge.frames`
+for the holds helpers, which is why `frames.js` sits above it. `editor.js` binds
+every core export at its top — **directly**, not through a `() =>` accessor. That
+form is for the two ui/ modules that load after it, and borrowing it for a core
+module cost a crash: `select`, `frames` and `transform` were reached that way for
+a while, and one use of `frames` runs while `editor.js` is still being evaluated,
+which put the arrow in its own temporal dead zone. `npm test` cannot see it —
+the suite loads `core/`, not `editor.js` — so it was a blank page in a browser
+and nothing else.
 
 `platform.js` is first in `ui/`, because `menu.js` calls its `applyLabels()`
 before handing the menu markup to the kit — the other way round and a Mac build
@@ -288,6 +295,53 @@ a suite that only turned squares would have missed the bug.
 
 The selection is dropped on a turn, like every other path that changes the
 frame under it: the marquee is measured in the old orientation.
+
+## A hold is a count of beats, and it stops at the .forge
+
+`core/frames.js` owns holds alongside the frame order, because a hold is a fact
+about the sequence rather than about a frame's pixels.
+
+**Ticks, not milliseconds.** The sprite already has an `fps`; a hold reads as
+"stay up for four beats", which is how sprite animation is authored. Changing
+the frame rate then rescales the whole cycle evenly instead of only the frames
+nobody held, and integers keep the `.forge` diffable — which is the entire
+reason that file is JSON of single characters rather than a blob.
+
+**It does not reach any engine, and neither does `fps`.** None of the five
+export targets takes a frame rate: adenosine, magnolia and texastoast each get a
+sheet and a load call, GameMaker has its own playback speed in the `.yy`, and
+Godot gets C# source. The PNG sheet is pixels and nothing else. So timing lives
+on the authoring document and the delivery carries none of it — that is not this
+being half-finished, it is where `fps` has always sat.
+
+**The field is optional and additive; `format` stays `sprite-forge/1`.** It is
+written only when some frame is held for more than one beat, so a project that
+does not use them grows nothing and its diff stays clean. The cost of not
+bumping the format is the honest one: a build that predates holds still opens
+these files, ignores the field, and drops it on the next save. Bumping instead
+would have locked those builds out of every file to protect one field.
+
+`normalizeHolds` is the one door in. A `.forge` from before holds existed
+carries none, a hand-edited one can carry anything, and the editor's own list
+could in principle fall out of step with the frames — so missing, short, long,
+fractional, negative and not-a-number all come back as a usable list rather than
+each caller checking. `validate` still *names* a wrong holds list in a file,
+because a hand-edited one a frame short is a typo worth reporting rather than
+silently rounding off.
+
+The parallel list is the risk, and it is handled in two places on purpose. The
+four paths that change the frame count — add, duplicate, delete, reorder — each
+move the holds with the frames, which is the only way a hold stays attached to
+the frame it belongs to; reorder does it with the same index pair, so the two
+cannot come apart. `updateFrameLabel` is the net under that for the fifth path
+somebody adds later: a length mismatch there would be an index into `undefined`
+in the tick arithmetic, and one entry too few is a frame whose timing quietly
+becomes 1 rather than a crash anybody notices.
+
+Playback counts ticks and asks `frameAtTick` which frame that is, rather than
+stepping an index itself. Nothing drifts, a rate change lands where the tick
+says, and pressing play on a held frame starts on its first beat via
+`tickOfFrame` instead of partway through it.
 
 ## The Godot target writes source, not an image
 

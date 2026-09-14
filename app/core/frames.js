@@ -1,10 +1,28 @@
-// frames.js — the frame LIST: what order the frames are in.
+// frames.js — the frame LIST: what order the frames are in, and how long each
+// one stays up.
 //
-// Not what is in a frame. Flipping, rotating and shifting are single-frame
-// pixel work and live with the canvas in ui/editor.js; core/sheet.js turns the
-// list into a sheet and back. What is here is the sequence itself, which is the
-// part with edges worth testing: an index that has to travel with the frame it
-// names, and a handful of positions that mean "no change" rather than an error.
+// Not what is IN a frame — that is core/transform.js and core/draw.js. What is
+// here is the sequence, which is the part with edges worth testing: an index
+// that has to travel with the frame it names, a handful of positions that mean
+// "no change" rather than an error, and a parallel list that must not be
+// allowed to drift out of step with the frames it describes.
+//
+// ── Holds
+//
+// A hold is how many ticks of the sprite's `fps` a frame occupies. All 1s is an
+// even animation at that rate; [1, 1, 4, 1] leaves the third frame up four
+// times as long. **Ticks rather than milliseconds**, for three reasons: the fps
+// is already the sprite's and a hold reads as "stay up for four beats", which
+// is how sprite animation is actually authored; changing the fps then rescales
+// the whole cycle evenly rather than only the frames nobody held; and integers
+// keep the .forge diffable, which is the whole reason that file is JSON of
+// single characters rather than a blob.
+//
+// A hold never leaves the editor. Neither does `fps` — none of the five export
+// targets take a frame rate, they each set playback at their own end, and the
+// PNG sheet is pixels and nothing else. That is not this being half-finished:
+// the .forge is the authoring document and the sheet is the delivery, and
+// timing has always lived on the first.
 //
 // Pure, like the rest of core/: a list in, a new list out, no mutation.
 
@@ -51,5 +69,74 @@ window.SpriteForge.frames = (function () {
         return reorder(list, index, index + delta) !== null;
     }
 
-    return { reorder, canMove };
+    /** The most ticks one frame may be held for. Two digits, because the input
+     *  in the FRAMES panel is two digits wide, and 99 ticks is twelve seconds
+     *  at the default 8fps — well past any pose worth calling a frame. */
+    const MAX_HOLD = 99;
+
+    /**
+     * A holds list that is safe to index: exactly `count` entries, every one a
+     * whole number from 1 to MAX_HOLD.
+     *
+     * Everything else here assumes that, and there are three ways it can fail
+     * to be true — a .forge written before holds existed carries none, a
+     * hand-edited one can carry anything, and the editor's own list could in
+     * principle fall out of step with the frames. Rather than each caller
+     * checking, this is the one door: missing, short, long, fractional,
+     * negative and not-a-number all come back as a usable list.
+     */
+    function normalizeHolds(holds, count) {
+        const src = Array.isArray(holds) ? holds : [];
+        return Array.from({ length: Math.max(0, count) }, (_, i) => {
+            const n = Math.floor(Number(src[i]));
+            return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_HOLD) : 1;
+        });
+    }
+
+    /** True when every frame is held for exactly one tick — an even animation,
+     *  and the case the .forge leaves the field out for entirely. */
+    function evenlyHeld(holds) {
+        return !holds || holds.every(n => n === 1);
+    }
+
+    /** How many ticks one pass through the animation takes. */
+    function totalTicks(holds) {
+        return holds.reduce((a, b) => a + b, 0);
+    }
+
+    /**
+     * Which frame is on screen `tick` ticks into the cycle.
+     *
+     * Takes the tick rather than being stepped, so playback has no state of its
+     * own to drift: the timer counts up, this answers, and a frame rate change
+     * or a scrub lands on the same frame the tick says it should. `tick` is
+     * wrapped here rather than by the caller, so a counter that runs forever is
+     * the ordinary way to use it.
+     *
+     * @returns the frame index, or 0 for an empty list.
+     */
+    function frameAtTick(holds, tick) {
+        const total = totalTicks(holds);
+        if (!holds.length || total <= 0) return 0;
+        let t = Math.floor(tick) % total;
+        if (t < 0) t += total;
+        for (let i = 0; i < holds.length; i++) {
+            if (t < holds[i]) return i;
+            t -= holds[i];
+        }
+        return holds.length - 1;      // unreachable while total is the sum
+    }
+
+    /** The first tick of a frame, so play-from-here starts on its first beat
+     *  rather than partway through it. */
+    function tickOfFrame(holds, index) {
+        let t = 0;
+        for (let i = 0; i < index && i < holds.length; i++) t += holds[i];
+        return t;
+    }
+
+    return {
+        reorder, canMove,
+        MAX_HOLD, normalizeHolds, evenlyHeld, totalTicks, frameAtTick, tickOfFrame,
+    };
 }());

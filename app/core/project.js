@@ -15,6 +15,7 @@ window.SpriteForge = window.SpriteForge || {};
 window.SpriteForge.project = (function () {
 
     const { nearestHex } = window.SpriteForge.color;
+    const FR = window.SpriteForge.frames;
 
     const FORMAT = 'sprite-forge/1';
 
@@ -41,6 +42,7 @@ window.SpriteForge.project = (function () {
             w, h,
             origin: { x: 0, y: 0 },
             fps: 8,
+            holds: [1],
             frames: [Array.from({ length: h }, () => Array(w).fill(null))],
         };
     }
@@ -215,14 +217,23 @@ window.SpriteForge.project = (function () {
             slots: p.slots ? { ...p.slots } : null,
             template: p.template || null,
             key,
-            sprites: p.sprites.map(s => ({
-                name: s.name,
-                w: s.w, h: s.h,
-                origin: [s.origin.x, s.origin.y],
-                fps: s.fps,
-                frames: s.frames.map(f =>
-                    f.map(row => row.map(px => (px ? charOf[px] : TRANSPARENT)).join(''))),
-            })),
+            sprites: p.sprites.map(s => {
+                const holds = FR.normalizeHolds(s.holds, s.frames.length);
+                return {
+                    name: s.name,
+                    w: s.w, h: s.h,
+                    origin: [s.origin.x, s.origin.y],
+                    fps: s.fps,
+                    // Left out entirely when every frame is a single beat,
+                    // which is every project that predates holds and most that
+                    // do not. A field of nothing but 1s on every sprite would
+                    // be noise in the diff of a file whose whole point is that
+                    // a reviewer can read it.
+                    ...(FR.evenlyHeld(holds) ? {} : { holds }),
+                    frames: s.frames.map(f =>
+                        f.map(row => row.map(px => (px ? charOf[px] : TRANSPARENT)).join(''))),
+                };
+            }),
         };
     }
 
@@ -254,6 +265,20 @@ window.SpriteForge.project = (function () {
             if (!Array.isArray(s.origin) || s.origin.length !== 2)
                 errs.push(`${at}: origin is ${JSON.stringify(s.origin)}, expected [x, y]`);
             if (!Array.isArray(s.frames) || !s.frames.length) { errs.push(`${at}: no frames`); return; }
+            // Absent is the ordinary case and means an even animation. Present
+            // and wrong is worth naming: a hand-edited holds list one short is
+            // a frame whose timing silently becomes 1, and saying so is the
+            // difference between a typo and a mystery.
+            if (s.holds !== undefined) {
+                if (!Array.isArray(s.holds))
+                    errs.push(`${at}: holds is ${JSON.stringify(s.holds)}, expected a list of counts`);
+                else if (s.holds.length !== s.frames.length)
+                    errs.push(`${at}: ${s.holds.length} holds for ${s.frames.length} frames`);
+                else s.holds.forEach((n, i) => {
+                    if (!Number.isInteger(n) || n < 1 || n > FR.MAX_HOLD)
+                        errs.push(`${at} frame ${i}: hold is ${JSON.stringify(n)}, expected 1 to ${FR.MAX_HOLD}`);
+                });
+            }
 
             s.frames.forEach((f, fi) => {
                 if (!Array.isArray(f)) { errs.push(`${at} frame ${fi}: not an array of rows`); return; }
@@ -310,6 +335,11 @@ window.SpriteForge.project = (function () {
                 w: s.w, h: s.h,
                 origin: { x: s.origin[0], y: s.origin[1] },
                 fps: s.fps || 8,
+                // Through normalizeHolds even though validate has already
+                // passed: it is the one door, and a project in memory always
+                // carries a full list so nothing downstream has to ask whether
+                // this one came from a file that had them.
+                holds: FR.normalizeHolds(s.holds, s.frames.length),
                 frames: s.frames.map(f => f.map(row => [...row].map(ch => key[ch] || null))),
             })),
         };

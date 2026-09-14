@@ -64,6 +64,71 @@ export default function (SF) {
         eq(after.sprites[0].fps, before.sprites[0].fps, 'fps');
     });
 
+    // ── holds ───────────────────────────────────────────────────
+    //
+    // A hold is how many ticks of the sprite's fps a frame occupies. The field
+    // is OPTIONAL and additive: `format` stays "sprite-forge/1", so a file
+    // written here still opens in a build that predates holds — it ignores
+    // them, which is the deliberate cost of not bumping the format and locking
+    // those builds out of every file instead.
+
+    const held = (holds) => {
+        const p = sample();
+        p.sprites[0].holds = holds;
+        return p;
+    };
+
+    test('an even animation writes no holds field at all', () => {
+        const o = P.serialize(held([1, 1]));
+        ok(!('holds' in o.sprites[0]), 'nothing to say, so nothing written');
+        // Same for a project that has never heard of them.
+        const bare = sample();
+        delete bare.sprites[0].holds;
+        ok(!('holds' in P.serialize(bare).sprites[0]), 'and none invented');
+    });
+
+    test('a held frame writes the field, and it round-trips', () => {
+        const before = held([1, 4]);
+        const o = P.serialize(before);
+        eq(o.sprites[0].holds, [1, 4], 'written');
+        eq(P.parse(P.stringify(before)).sprites[0].holds, [1, 4], 'read back');
+    });
+
+    test('a .forge from before holds existed opens with every frame on one beat', () => {
+        const text = P.stringify(sample());
+        const o = JSON.parse(text);
+        ok(!('holds' in o.sprites[0]), 'the fixture has none');
+        eq(P.parse(text).sprites[0].holds, [1, 1], 'a full list either way');
+    });
+
+    // The project in memory always carries one hold per frame, so nothing
+    // downstream has to ask whether this one came from a file that had them.
+    test('a short or nonsense holds list is filled in rather than trusted', () => {
+        const o = P.serialize(held([1, 4]));
+        o.sprites[0].holds = [3];                  // hand-edited, one short
+        const errs = P.validate(o);
+        ok(errs.some(e => e.includes('1 holds for 2 frames')), 'validate names it: ' + errs);
+        // parse refuses it rather than filling it in silently — the file is
+        // wrong and saying so is the point of validate.
+        throws(() => P.parse(JSON.stringify(o)), 'holds for', 'and parse refuses');
+    });
+
+    test('a hold outside 1..MAX is refused by name, not clamped on the way in', () => {
+        const o = P.serialize(held([1, 4]));
+        for (const bad of [0, -1, 1.5, 1000]) {
+            o.sprites[0].holds = [1, bad];
+            ok(P.validate(o).some(e => e.includes('frame 1: hold is')), `${bad} named`);
+        }
+    });
+
+    test('holds survive a save that also has to say no to something else', () => {
+        // stringify validates on the way out too; a project with holds and a
+        // duplicate name must still fail on the name.
+        const p = held([2, 1]);
+        p.sprites = [p.sprites[0], { ...p.sprites[0] }];
+        throws(() => P.stringify(p), 'has this name', 'the name is the problem, not the holds');
+    });
+
     test('frames serialise as readable rows, transparent as "."', () => {
         const o = P.serialize(sample());
         eq(o.sprites[0].frames[0].length, 3, 'row count');

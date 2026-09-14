@@ -38,6 +38,8 @@ reduced in a browser at
       sheet strip
 - [x] Rotation at any frame size — turns the sprite, the dimensions and the
       origin together, so a 16×24 is no longer a sprite that cannot be turned
+- [x] Per-frame hold — keep one pose up for several beats, marked on the sheet
+      strip and carried in the `.forge`
 
 ## Two builds, one codebase
 
