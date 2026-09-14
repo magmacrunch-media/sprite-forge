@@ -148,7 +148,7 @@
                     <canvas id="anim-canvas"></canvas>
                 </div>
                 <div class="preview-block">
-                    <span class="sheet-label">sheet; click a frame to edit it</span>
+                    <span class="sheet-label">sheet; click a frame to edit it, drag to reorder</span>
                     <canvas id="sheet-canvas"></canvas>
                 </div>
                 <!-- The frame wrapped onto the surface it is bound for. A
@@ -308,6 +308,10 @@
                     <button id="frame-add" title="Add blank frame">ADD</button>
                     <button id="frame-dup" title="Duplicate frame">DUP</button>
                     <button id="frame-del" title="Delete frame">DEL</button>
+                </div>
+                <div class="row nav-row">
+                    <button id="frame-left" title="Move this frame earlier (Shift+[)">&#8676; MOVE</button>
+                    <button id="frame-right" title="Move this frame later (Shift+])">MOVE &#8677;</button>
                 </div>
                 <div class="sub-label">playback</div>
                 <div class="row">
@@ -504,6 +508,7 @@
             <div class="sub-label">frames</div>
             <dl class="ref-grid">
                 <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next frame</dd>
+                <dt><kbd>Shift</kbd><kbd>[</kbd> <kbd>]</kbd></dt><dd>Move this frame earlier / later &mdash; or drag it in the sheet strip</dd>
                 <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
                 <dt><kbd>&larr;&uarr;&darr;&rarr;</kbd></dt><dd>Nudge the whole drawing a pixel, wrapping at the edge &mdash; with a selection up they move that instead</dd>
                 <dt><kbd>H</kbd> <kbd>V</kbd></dt><dd>Flip across the vertical / horizontal</dd>
@@ -606,6 +611,7 @@
     <script src="../core/color.js"></script>
     <script src="../core/draw.js"></script>
     <script src="../core/select.js"></script>
+    <script src="../core/frames.js"></script>
     <script src="../core/sheet.js"></script>
     <script src="../core/mesh.js"></script>
     <script src="../core/templates.js"></script>

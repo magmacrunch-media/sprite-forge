@@ -76,6 +76,10 @@
         // ── frames and animation ──
         { key: '[', action: 'frame:prev' },
         { key: ']', action: 'frame:next' },
+        // Shift moves the frame instead of the cursor, which is the same
+        // relationship Shift already has with the other bracket pair.
+        { key: '[', shift: true, action: 'frame:move-left' },
+        { key: ']', shift: true, action: 'frame:move-right' },
         { key: ' ', action: 'anim:play', prevent: true },
 
         // ── transform ── the arrows scroll the page if left alone

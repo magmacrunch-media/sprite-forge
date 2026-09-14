@@ -111,7 +111,10 @@ body {
     background: repeating-conic-gradient(#15151d 0% 25%, #1d1d28 0% 50%) 0 0 / 12px 12px;
 }
 
-#sheet-canvas { cursor: pointer; }
+/* grab rather than pointer: the strip selects on press and reorders on drag,
+   so the cursor should say the frames are movable before anyone tries it. */
+#sheet-canvas { cursor: grab; }
+#sheet-canvas:active { cursor: grabbing; }
 
 /* ── DOCK ── */
 

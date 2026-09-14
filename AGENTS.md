@@ -47,9 +47,10 @@ the same `core/` serves the desktop build, the web demo, and the export
 targets, none of which share a DOM.
 
 Load order matters and is fixed in `ui/index.html` — `tier` → `color` → `draw`
-→ `select` → `sheet` → `mesh` → `templates` → `editor`. `select.js` depends on
-nothing and is grouped beside `draw.js` because the two are the what-a-tool-does
-pair: one plots shapes, the other lifts regions. `mesh.js` is grouped beside `sheet.js` because
+→ `select` → `frames` → `sheet` → `mesh` → `templates` → `editor`. `select.js`
+and `frames.js` both depend on nothing, and are grouped after `draw.js` because
+the four of them are what a tool does to a drawing: plot shapes, lift a region,
+order the list. `mesh.js` is grouped beside `sheet.js` because
 the two are the pixels-to-bitmap pair and deal in the same `ImageData`; it depends on no
 other core module, so its place is a grouping and not a sequence. `tier.js` is first in `core/` because it
 reads `SpriteForge.fs`, which `ui/bridge.js` decides in `<head>`, and it holds
@@ -209,6 +210,49 @@ OUTPUT box is a person copying that snippet, and answering it with a pixel copy
 would take the textarea's own clipboard away from them. The guard returns
 *before* `preventDefault`, or a suppressed `Ctrl+V` would be a paste that never
 arrives.
+
+## Frame order, and the buttons that admit what they cannot do
+
+`core/frames.js` is one function and a predicate, and it is a core module
+anyway, because `reorder`'s `to` is the kind of index that is wrong for a week
+before anybody notices. **`to` is where the moved frame ends up in the returned
+list** — not a gap between frames, and not an index into the list before the
+removal. Those two differ from this one by one, in opposite directions
+depending on which way the frame travels. Dropping a frame on the third slot
+makes it the third frame, whichever slot it came from, and that is the reading
+a person can check by eye.
+
+A move that would change nothing returns **null**, the same shape
+`targets/gamemaker.js`'s `patchYy` uses and for the same reason: "would this do
+anything?" gets one answer, and no undo entry is pushed for a move that did not
+happen.
+
+`frameIndex` follows the frame, not the position. You were editing that drawing
+before the move and you are editing it after — any other reading makes dragging
+a frame across the strip feel like shuffling what is under a fixed pointer.
+
+**The frame buttons now grey themselves out, and five of them did not before.**
+ADD and DUP at the 64-frame ceiling, DEL on the last remaining frame, and both
+nav arrows at the ends were all live buttons with an early `return` behind
+them. A press that does nothing and says nothing is the worst of the three
+available answers. `updateFrameButtons()` is called from `updateFrameLabel()`
+rather than from the seven places that change the list, because that is already
+the one function all seven end in — a button state remembered at each call site
+is one that gets forgotten at the eighth.
+
+The sheet strip selects on **mousedown** now rather than click, because it also
+drags. A plain click does exactly what it always did, one event earlier. Both
+`mouseup` and `mouseleave` settle the drag where it stands rather than
+abandoning it: the strip is 32 pixels tall at 2x, the cursor leaves it
+constantly, and a drag that only counted when it ended inside would feel broken
+on exactly the moves people make.
+
+The drop indicator is drawn as a dark stroke under a rose dashed one, the same
+two-stroke treatment as the canvas marquee and for the same reason. `#ff3d6e`
+is the app's own accent and it is in the vendored themes, so a single rose line
+over rose art is invisible — and the frame somebody is dragging is as likely to
+be that colour as any other. It was a single line first, and sampling the strip
+mid-drag over a solid `#ff3d6e` sprite returned exactly one colour.
 
 ## The Godot target writes source, not an image
 

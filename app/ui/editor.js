@@ -114,6 +114,13 @@ const oxInput = document.getElementById('origin-x');
 const oyInput = document.getElementById('origin-y');
 const zoomLabel = document.getElementById('zoom-label');
 const frameLabel = document.getElementById('frame-label');
+const btnFramePrev = document.getElementById('frame-prev');
+const btnFrameNext = document.getElementById('frame-next');
+const btnFrameAdd = document.getElementById('frame-add');
+const btnFrameDup = document.getElementById('frame-dup');
+const btnFrameDel = document.getElementById('frame-del');
+const btnFrameLeft = document.getElementById('frame-left');
+const btnFrameRight = document.getElementById('frame-right');
 const toolReadout = document.getElementById('tool-readout');
 const canvasDims = document.getElementById('canvas-dims');
 const canvasStage = document.getElementById('canvas-stage');
@@ -143,6 +150,32 @@ function frame() { return frames[frameIndex]; }
 function updateFrameLabel() {
   frameLabel.textContent = `${frameIndex + 1} / ${frames.length}`;
   frameStat.textContent = `${frames.length} FRAME${frames.length === 1 ? '' : 'S'}`;
+  updateFrameButtons();
+}
+
+/**
+ * Greys out the frame buttons that cannot do anything from here.
+ *
+ * Called from updateFrameLabel rather than from the seven places that change
+ * the list, because that is already the one function all seven end in — and a
+ * button state that has to be remembered at each call site is a button state
+ * that will be forgotten at the eighth.
+ *
+ * Every one of these used to be a live button with an early `return` behind
+ * it: ADD and DUP at the 64-frame ceiling, DEL on the last frame, and both
+ * arrows at the ends. A press that does nothing and says nothing is the worst
+ * of the three possible answers, and it was the one given.
+ */
+function updateFrameButtons() {
+  const FR = window.SpriteForge.frames;
+  const full = frames.length >= MAX_FRAMES;
+  btnFrameAdd.disabled = full;
+  btnFrameDup.disabled = full;
+  btnFrameDel.disabled = frames.length <= 1;
+  btnFramePrev.disabled = frameIndex <= 0;
+  btnFrameNext.disabled = frameIndex >= frames.length - 1;
+  btnFrameLeft.disabled = !FR.canMove(frames, frameIndex, -1);
+  btnFrameRight.disabled = !FR.canMove(frames, frameIndex, 1);
 }
 
 // ── Undo / Redo ─────────────────────────────────────────
@@ -346,15 +379,69 @@ function renderSheet() {
     sheetCtx.drawImage(cachedFrame(i), i * frameW * scale, 0, frameW * scale, frameH * scale);
   sheetCtx.strokeStyle = '#3b82f6'; sheetCtx.lineWidth = 2;
   sheetCtx.strokeRect(frameIndex * frameW * scale + 1, 1, frameW * scale - 2, frameH * scale - 2);
+  // Where a frame being dragged would land. Drawn only once it has actually
+  // left its own slot, so a plain click never flashes a destination at you.
+  if (stripFrom !== null && stripTo !== null && stripTo !== stripFrom) {
+    const bx = stripTo * frameW * scale + 1, bw = frameW * scale - 2, bh = frameH * scale - 2;
+    // Two strokes, like the canvas marquee and for the same reason: #ff3d6e is
+    // a palette colour — it is the app's own accent and it is in the vendored
+    // themes — so a single rose line vanishes over rose art, which is exactly
+    // the frame somebody is most likely to be dragging around.
+    sheetCtx.lineWidth = 2;
+    sheetCtx.setLineDash([]);
+    sheetCtx.strokeStyle = 'rgba(0,0,0,0.8)';
+    sheetCtx.strokeRect(bx, 1, bw, bh);
+    sheetCtx.strokeStyle = '#ff3d6e';
+    sheetCtx.setLineDash([4, 3]);
+    sheetCtx.strokeRect(bx, 1, bw, bh);
+    sheetCtx.setLineDash([]);
+  }
   renderAnim();
 }
 
-sheetCanvas.addEventListener('click', (e) => {
+/** Which frame the cursor is over, clamped to the strip. */
+function slotAt(e) {
   const r = sheetCanvas.getBoundingClientRect();
   const i = Math.floor((e.clientX - r.left) / (r.width / frames.length));
-  frameIndex = Math.max(0, Math.min(frames.length - 1, i));
+  return Math.max(0, Math.min(frames.length - 1, i));
+}
+
+// Picking a frame moved from click to mousedown, because the strip now also
+// drags. A press selects, and if the cursor then travels to another slot the
+// release reorders — so a plain click still does exactly what it always did,
+// one event earlier.
+let stripFrom = null, stripTo = null;
+
+sheetCanvas.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  if (e.button !== 0) return;
+  frameIndex = slotAt(e);
+  stripFrom = frameIndex; stripTo = frameIndex;
   render(); renderSheet(); updateFrameLabel();
 });
+
+sheetCanvas.addEventListener('mousemove', (e) => {
+  if (stripFrom === null) return;
+  const to = slotAt(e);
+  if (to === stripTo) return;
+  stripTo = to;
+  renderSheet();
+});
+
+// Both endings settle the drag where it stands rather than abandoning it. A
+// strip one frame wide at 2x is 32 pixels tall, so the cursor leaves it
+// constantly, and a drag that only counted when it ended inside would feel
+// broken on exactly the moves people make.
+sheetCanvas.addEventListener('mouseup', () => endStripDrag());
+sheetCanvas.addEventListener('mouseleave', () => endStripDrag());
+
+function endStripDrag() {
+  if (stripFrom === null) return;
+  const to = stripTo;
+  stripFrom = null; stripTo = null;
+  moveFrameTo(to);
+  renderSheet();
+}
 
 // ── Animation preview ───────────────────────────────────
 
@@ -892,6 +979,36 @@ document.getElementById('frame-dup').addEventListener('click', () => {
   render(); renderSheet(); updateFrameLabel();
 });
 
+/**
+ * Moves the current frame to `to`, and follows it with the cursor.
+ *
+ * `frameIndex` tracks the frame rather than the position: you were editing
+ * that drawing before the move and you are editing it after, which is the only
+ * reading that makes dragging a frame across the strip feel like moving a
+ * thing rather than shuffling what is under a fixed pointer.
+ *
+ * A move that would change nothing comes back null from core/frames.js and is
+ * dropped here, so no undo entry is pushed for it. The buttons are greyed at
+ * the ends anyway; this is the second line, for the drag, which can be let go
+ * anywhere.
+ */
+function moveFrameTo(to) {
+  const next = window.SpriteForge.frames.reorder(frames, frameIndex, to);
+  if (!next) return;
+  snapshot();
+  frames = next;
+  frameIndex = Math.max(0, Math.min(frames.length - 1, to));
+  // Cleared rather than permuted alongside. It is the same permutation and
+  // reordering it would save re-rasterising up to 64 thumbnails — but the
+  // cache is sparse, holes and all, and a cache that disagrees with the list
+  // shows the wrong art in the strip rather than failing.
+  frameCache = [];
+  render(); renderSheet(); updateFrameLabel();
+}
+
+btnFrameLeft.addEventListener('click', () => moveFrameTo(frameIndex - 1));
+btnFrameRight.addEventListener('click', () => moveFrameTo(frameIndex + 1));
+
 document.getElementById('frame-del').addEventListener('click', () => {
   if (frames.length <= 1) return;
   snapshot();
@@ -1270,6 +1387,8 @@ const KEY_ACTIONS = {
 
   'frame:prev': () => stepFrame(-1),
   'frame:next': () => stepFrame(1),
+  'frame:move-left': () => moveFrameTo(frameIndex - 1),
+  'frame:move-right': () => moveFrameTo(frameIndex + 1),
   'anim:play': () => setPlaying(!anim.playing),
 
   'transform:flip-h': () => document.getElementById('flip-h').click(),

@@ -34,6 +34,8 @@ reduced in a browser at
 - [x] `.forge` save and open in the browser build, so a refresh stops costing you the work
 - [x] Rectangular selection — move, cut, copy, paste, and a clipboard that
       follows you between sprites
+- [x] Frame reordering — two buttons, `Shift`+`[` / `]`, or drag a frame in the
+      sheet strip
 
 ## Two builds, one codebase
 
