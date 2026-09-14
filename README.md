@@ -32,6 +32,8 @@ reduced in a browser at
 - [x] macOS build — one universal `.dmg`, Apple Silicon and Intel
 - [x] Surface preview — the frame wrapped onto a sphere, cylinder or billboard
 - [x] `.forge` save and open in the browser build, so a refresh stops costing you the work
+- [x] Rectangular selection — move, cut, copy, paste, and a clipboard that
+      follows you between sprites
 
 ## Two builds, one codebase
 

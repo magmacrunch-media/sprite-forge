@@ -58,6 +58,7 @@ const SIDEBAR_MIN = 200, SIDEBAR_MAX = 420;
 const TOOL_META = {
   pencil: ['Pencil', 'B'], erase: ['Erase', 'E'], fill: ['Fill', 'G'], line: ['Line', 'L'],
   rect: ['Rect', 'U'], ellipse: ['Ellipse', 'C'], pick: ['Pick', 'I'], origin: ['Origin', 'O'],
+  select: ['Select', 'S'],
 };
 
 let frameW = 32, frameH = 32;
@@ -75,6 +76,22 @@ let mirrorX = false, onionSkin = false, gridOn = true, dockOn = true;
 let painting = false;
 let lastPos = null;             // previous pencil/erase position, for stroke interpolation
 let shapeStart = null, shapeEnd = null;
+// The marquee, as core/select.js's {x, y, w, h} — or null for none. Only the
+// select tool can have one; setTool drops it on the way out, because with no
+// layers there is nothing to clip a pencil stroke to and a marquee that does
+// not constrain anything is a marquee that lies.
+let selection = null;
+let marqueeStart = null;        // the anchor corner while a marquee is being dragged
+// A move in progress. The pixels come out of the frame ONCE, on mousedown, and
+// go back once on mouseup — `dragBase` is the frame with the hole already in it
+// and `dragClip` is what is floating over it. Committing on every mousemove
+// instead would clip the region against the edge at each step, so dragging out
+// past the boundary and back would eat it a column at a time.
+let dragClip = null, dragBase = null, dragFrom = null, dragTo = null;
+// Survives frame switches, sprite switches and tool changes on purpose: copying
+// a hand in one sprite to paste into another is the point of having a clipboard
+// rather than a duplicate button.
+let clipboard = null;
 let anim = { playing: false, fps: 8, scale: 4, index: 0, timer: null };
 let frameCache = [];            // 1:1 offscreen canvas per frame, for previews
 // Set when a character template is loaded: { id, slots: {name: baseHex},
@@ -141,6 +158,7 @@ function currentState() {
 }
 
 function restore(s) {
+  deselect();
   frames = s.frames; frameIndex = s.frameIndex; origin = s.origin;
   frameW = s.frameW; frameH = s.frameH;
   palette = s.palette; selectedSwatch = s.selectedSwatch; selectedColor = s.selectedColor;
@@ -243,6 +261,20 @@ function render() {
     }
     ctx.globalAlpha = 1;
   }
+  // The clip being dragged, drawn over the hole it left rather than into the
+  // frame: nothing is committed until mouseup.
+  if (dragClip && dragTo) {
+    const dx = dragTo.x - dragFrom.x, dy = dragTo.y - dragFrom.y;
+    for (let cy = 0; cy < dragClip.length; cy++)
+      for (let cx = 0; cx < dragClip[cy].length; cx++) {
+        const px = dragClip[cy][cx];
+        if (!px) continue;
+        const tx = selection.x + dx + cx, ty = selection.y + dy + cy;
+        if (tx < 0 || tx >= frameW || ty < 0 || ty >= frameH) continue;
+        ctx.fillStyle = px;
+        ctx.fillRect(tx * zoom, ty * zoom, zoom, zoom);
+      }
+  }
   if (gridOn && zoom >= 6) {
     ctx.strokeStyle = '#33304a'; ctx.lineWidth = 1;
     ctx.globalAlpha = 0.4;
@@ -264,6 +296,23 @@ function render() {
     ctx.moveTo(canvas.width / 2 + .5, 0); ctx.lineTo(canvas.width / 2 + .5, canvas.height);
     ctx.stroke();
     ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  // The marquee, last of the overlays and before the origin cross, so it sits
+  // over the grid. Two strokes rather than one: a single colour disappears
+  // against art of that colour, and a selection you cannot see is worse than
+  // none. The dark line under the dashes is what makes the light ones read.
+  const marquee = marqueeStart && lastMarquee ? lastMarquee : selection;
+  if (marquee) {
+    const mx = marquee.x * zoom, my = marquee.y * zoom;
+    const mw = marquee.w * zoom, mh = marquee.h * zoom;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.strokeRect(mx + .5, my + .5, mw - 1, mh - 1);
+    ctx.strokeStyle = '#f0ead8';
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(mx + .5, my + .5, mw - 1, mh - 1);
+    ctx.setLineDash([]);
   }
   const ox = origin.x * zoom, oy = origin.y * zoom;
   ctx.strokeStyle = '#ff6ec7'; ctx.lineWidth = 1;
@@ -353,6 +402,93 @@ animScaleBtn.addEventListener('click', () => {
   renderAnim();
 });
 
+// ── Selection ───────────────────────────────────────────
+//
+// What a selection MEANS — the geometry, the lift, the stamp — is
+// core/select.js, and tested there. What is here is the part that needs a
+// mouse, a canvas and an undo stack.
+
+const SEL = () => window.SpriteForge.select;
+
+// The rect drawn while a marquee is still being dragged. Held separately from
+// `selection` so that a drag which ends up empty leaves the previous selection
+// alone rather than half-replacing it.
+let lastMarquee = null;
+
+/** Drops the selection and anything floating over it. Called wherever the
+ *  frame beneath it stops being the frame it was measured against — an undo, a
+ *  resize, a switch to another sprite — because a rect that outlives its frame
+ *  points at pixels that are not there. */
+function deselect() {
+  selection = null; marqueeStart = null; lastMarquee = null;
+  dragClip = null; dragBase = null; dragFrom = null; dragTo = null;
+}
+
+/** Is (x, y) inside the current selection? Decides whether a mousedown starts
+ *  a move or a new marquee. */
+function inSelection(x, y) {
+  return !!selection && x >= selection.x && x < selection.x + selection.w
+    && y >= selection.y && y < selection.y + selection.h;
+}
+
+/** Replaces the current frame, invalidating its preview. The four operations
+ *  below all do exactly this and nothing else, so they share it. */
+function putFrame(next) {
+  frames[frameIndex] = next;
+  frameCache[frameIndex] = null;
+  render(); renderSheet();
+}
+
+function selectAll() {
+  setTool('select');
+  selection = { x: 0, y: 0, w: frameW, h: frameH };
+  render();
+}
+
+function copySelection() {
+  if (SEL().isEmpty(selection)) { Toast.show('NOTHING SELECTED'); return false; }
+  clipboard = SEL().extract(frame(), selection);
+  return true;
+}
+
+function cutSelection() {
+  if (!copySelection()) return;
+  snapshot();
+  putFrame(SEL().clearRegion(frame(), selection));
+  Toast.show('CUT');
+}
+
+function deleteSelection() {
+  if (SEL().isEmpty(selection)) { Toast.show('NOTHING SELECTED'); return; }
+  snapshot();
+  putFrame(SEL().clearRegion(frame(), selection));
+}
+
+/**
+ * Puts the clipboard down at the current selection's corner, or at the frame's
+ * if there is none, and selects what landed — so a paste can be dragged into
+ * place immediately rather than being stuck where it fell.
+ */
+function pasteClipboard() {
+  if (!clipboard || !clipboard.length) { Toast.show('NOTHING TO PASTE'); return; }
+  setTool('select');
+  const at = selection ? { x: selection.x, y: selection.y } : { x: 0, y: 0 };
+  snapshot();
+  putFrame(SEL().stamp(frame(), clipboard, at.x, at.y));
+  selection = SEL().clamp(
+    { x: at.x, y: at.y, w: clipboard[0].length, h: clipboard.length }, frameW, frameH);
+  render();
+}
+
+/** Nudge, for the arrow keys. Commits each step, unlike a mouse drag: a key
+ *  press has no beginning and end to float between. */
+function nudgeSelection(dx, dy) {
+  snapshot();
+  const r = SEL().move(frame(), selection, dx, dy);
+  selection = r.rect;
+  putFrame(r.frame);
+}
+
 // ── Mouse interaction ───────────────────────────────────
 
 function pixelAt(e) {
@@ -396,6 +532,21 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 2) return;
   const c = pixelAt(e);
   if (e.altKey) { pickColor(c.x, c.y); return; }
+  if (tool === 'select') {
+    painting = true;
+    if (inSelection(c.x, c.y)) {
+      // Lift once. See the dragClip declaration for why not per-move.
+      beginStroke();
+      dragClip = SEL().extract(frame(), selection);
+      dragBase = SEL().clearRegion(frame(), selection);
+      dragFrom = c; dragTo = c;
+    } else {
+      marqueeStart = c;
+      lastMarquee = SEL().rectFrom(c, c, frameW, frameH);
+    }
+    render();
+    return;
+  }
   if (SHAPE_TOOLS.has(tool)) {
     beginStroke(); shapeStart = c; shapeEnd = c; painting = true;
     render();
@@ -422,12 +573,16 @@ canvas.addEventListener('mousedown', (e) => {
 canvas.addEventListener('mousemove', (e) => {
   if (!painting) return;
   const c = pixelAt(e);
-  if (shapeStart) { shapeEnd = c; render(); }
+  if (dragClip) { dragTo = c; render(); }
+  else if (marqueeStart) { lastMarquee = SEL().rectFrom(marqueeStart, c, frameW, frameH); render(); }
+  else if (shapeStart) { shapeEnd = c; render(); }
   else if (tool === 'pencil') paintAt(c.x, c.y, selectedColor);
   else if (tool === 'erase') paintAt(c.x, c.y, null);
 });
 
 canvas.addEventListener('mouseup', () => {
+  if (dragClip) { endMove(); return; }
+  if (marqueeStart) { endMarquee(); return; }
   if (shapeStart && shapeEnd) {
     const pts = shapePixels(tool, shapeStart.x, shapeStart.y, shapeEnd.x, shapeEnd.y);
     let changed = false;
@@ -442,9 +597,53 @@ canvas.addEventListener('mouseup', () => {
 });
 
 canvas.addEventListener('mouseleave', () => {
+  // A move or a marquee that leaves the canvas is finished where it stands,
+  // not abandoned: releasing the button out over the sidebar is how anyone
+  // drags something to the edge, and throwing the move away there would make
+  // the last column of a sprite unreachable.
+  if (dragClip) { endMove(); return; }
+  if (marqueeStart) { endMarquee(); return; }
   if (shapeStart) { shapeStart = null; shapeEnd = null; render(); }
   painting = false; lastPos = null; history.cancelStroke();
 });
+
+/** Puts the floating clip down, as one undo entry.
+ *
+ *  The drag state is cleared BEFORE the frame is written, so the single render
+ *  that follows draws the committed pixels and not the floating copy over the
+ *  top of them; and `selection` is moved first so that render draws the marquee
+ *  where the pixels now are rather than where they were. */
+function endMove() {
+  const dx = dragTo.x - dragFrom.x, dy = dragTo.y - dragFrom.y;
+  const clip = dragClip, base = dragBase;
+  const landed = { x: selection.x + dx, y: selection.y + dy, w: selection.w, h: selection.h };
+  dragClip = null; dragBase = null; dragFrom = null; dragTo = null;
+  painting = false;
+  if (dx || dy) {
+    commitStroke();
+    selection = SEL().clamp(landed, frameW, frameH);
+    putFrame(SEL().stamp(base, clip, landed.x, landed.y));
+  } else {
+    // Pressed and released without moving. Nothing changed, so cancelStroke
+    // below throws the snapshot away and the undo stack never hears about it.
+    render();
+  }
+  history.cancelStroke();
+}
+
+/** Settles a marquee drag.
+ *
+ *  A press and release with no drag leaves a one-pixel selection rather than
+ *  nothing, because pixelAt clamps to the canvas and both corners of a rect are
+ *  included — see core/select.js. That is wanted: one pixel is a legitimate
+ *  thing to copy. Escape is how you get rid of a selection, and so is picking
+ *  another tool. */
+function endMarquee() {
+  selection = lastMarquee;
+  marqueeStart = null; lastMarquee = null;
+  painting = false;
+  render();
+}
 
 canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault(); const c = pixelAt(e);
@@ -514,7 +713,7 @@ function renderPalette() {
     div.title = 'Click to draw with this colour — double-click to change it';
     div.addEventListener('click', () => {
       selectedSwatch = idx; selectedColor = palette[idx];
-      if (!['pencil', 'fill', 'line', 'rect', 'ellipse'].includes(tool)) { tool = 'pencil'; updateToolActive(); }
+      if (!['pencil', 'fill', 'line', 'rect', 'ellipse'].includes(tool)) setTool('pencil');
       updatePaletteActive(); updateColorChip();
     });
     div.addEventListener('dblclick', () => ci.click());
@@ -602,8 +801,11 @@ function updateToolActive() {
   toolReadout.append(label, kbd);
 }
 
+// Through setTool, not a second copy of its two lines. They were the same
+// thing until picking a tool acquired a consequence — dropping the marquee —
+// and then they were a keyboard shortcut and a button that disagreed.
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn =>
-  btn.addEventListener('click', () => { tool = btn.dataset.tool; updateToolActive(); }));
+  btn.addEventListener('click', () => setTool(btn.dataset.tool)));
 
 const mirrorToggle = document.getElementById('mirror-toggle');
 const onionToggle = document.getElementById('onion-toggle');
@@ -624,6 +826,7 @@ dockToggle.addEventListener('click', () => setDock(!dockOn));
 
 function resizeTo(w, h) {
   if (w === frameW && h === frameH) return;
+  deselect();
   snapshot();
   const prev = frames;
   frameW = w; frameH = h;
@@ -1048,6 +1251,14 @@ const KEY_ACTIONS = {
   'tool:ellipse': () => setTool('ellipse'),
   'tool:pick': () => setTool('pick'),
   'tool:origin': () => setTool('origin'),
+  'tool:select': () => setTool('select'),
+
+  'edit:select-all': () => selectAll(),
+  'edit:select-none': () => { if (selection) { deselect(); render(); } },
+  'edit:copy': () => { if (copySelection()) Toast.show('COPIED'); },
+  'edit:cut': () => cutSelection(),
+  'edit:paste': () => pasteClipboard(),
+  'edit:delete': () => deleteSelection(),
 
   'view:zoom-fit': () => fitToWindow(),
   'view:grid': () => setGrid(!gridOn),
@@ -1064,19 +1275,45 @@ const KEY_ACTIONS = {
   'transform:flip-h': () => document.getElementById('flip-h').click(),
   'transform:flip-v': () => document.getElementById('flip-v').click(),
   'transform:rot-90': () => document.getElementById('rot-90').click(),
-  'shift:left': () => shiftFrame(-1, 0),
-  'shift:right': () => shiftFrame(1, 0),
-  'shift:up': () => shiftFrame(0, -1),
-  'shift:down': () => shiftFrame(0, 1),
+  // With a marquee up the arrows move what is inside it; with none they shift
+  // the whole frame, which is what they have always done. One key, and which
+  // it means is on screen: the dashed rectangle is the difference.
+  'shift:left': () => nudge(-1, 0),
+  'shift:right': () => nudge(1, 0),
+  'shift:up': () => nudge(0, -1),
+  'shift:down': () => nudge(0, 1),
 
   'file:templates': () => document.getElementById('template-btn').click(),
 };
 
-function setTool(name) { tool = name; updateToolActive(); }
+/** An arrow key: the selection if there is one, the frame if not. */
+function nudge(dx, dy) {
+  if (selection) nudgeSelection(dx, dy);
+  else shiftFrame(dx, dy);
+}
+
+function setTool(name) {
+  // Leaving the select tool drops the marquee. There are no layers here, so
+  // nothing clips a pencil stroke to a selection — and an outline still drawn
+  // on the canvas while the pencil ignores it is a promise the editor does not
+  // keep. The clipboard is not touched; it is not the selection.
+  if (name !== 'select' && tool === 'select') { deselect(); render(); }
+  tool = name;
+  updateToolActive();
+}
 
 const KB = window.SpriteForge.keybindings;
 const KEYS = MagmaKit.keys.create(KB.BINDINGS);
 const EDITOR_ACTIONS = Object.keys(KEY_ACTIONS);
+
+// Ctrl chords fire while typing by design — kit/keys.js says so, and Ctrl+Z in
+// a field is unambiguous. These four are the exception, because the browser
+// already means something by them in a text box: Ctrl+C in the EXPORT OUTPUT
+// area is a person copying that snippet, and answering it with a pixel copy
+// takes the textarea's own clipboard away from them. The bare keys need no
+// entry here; the kit's own guard already stands them down.
+const NOT_WHILE_TYPING = new Set(
+  ['edit:copy', 'edit:cut', 'edit:paste', 'edit:select-all']);
 
 document.addEventListener('keydown', (e) => {
   // Any open dialog swallows the shortcuts, rather than the two named ones:
@@ -1086,6 +1323,9 @@ document.addEventListener('keydown', (e) => {
   if (document.querySelector('dialog[open]')) return;
   const action = KEYS.resolve(e, EDITOR_ACTIONS);
   if (!action) return;
+  // Before preventDefault, deliberately: the point is to leave the event to
+  // the field entirely, and a prevented Ctrl+V is a paste that never arrives.
+  if (NOT_WHILE_TYPING.has(action) && MagmaKit.keys.isTyping(e.target)) return;
   if (KB.prevents(action)) e.preventDefault();
   KEY_ACTIONS[action]();
 });
@@ -1323,6 +1563,7 @@ resizer.addEventListener('dblclick', () => { setSidebarWidth(240); saveViewPrefs
  *  sprite; the palette and the template belong to the project and are not
  *  touched. */
 function putSprite(sprite) {
+  deselect();
   frameW = sprite.w; frameH = sprite.h;
   wInput.value = frameW; hInput.value = frameH;
   frames = sprite.frames.map(f => f.map(row => [...row]));
@@ -1413,6 +1654,18 @@ window.SpriteForge.editor = {
   undo, redo,
   canUndo() { return history.canUndo(); },
   canRedo() { return history.canRedo(); },
+
+  // The selection, through the same door. The Edit menu drives exactly what
+  // Ctrl+X/C/V and Delete do, and hasSelection/hasClipboard are what let it
+  // grey an item rather than offer a click that answers with a toast.
+  cut: cutSelection,
+  copy: () => { if (copySelection()) Toast.show('COPIED'); },
+  paste: pasteClipboard,
+  deleteSelection,
+  selectAll,
+  deselect() { deselect(); render(); },
+  hasSelection() { return !window.SpriteForge.select.isEmpty(selection); },
+  hasClipboard() { return !!clipboard; },
 };
 
 // ── Init ────────────────────────────────────────────────

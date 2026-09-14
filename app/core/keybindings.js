@@ -27,6 +27,23 @@
         { key: 'z', ctrl: true, shift: true, action: 'edit:redo', prevent: true },
         { key: 'y', ctrl: true, action: 'edit:redo', prevent: true },
 
+        // ── selection ── the clipboard chords are prevented so the canvas
+        // does not also get the browser's own copy, and editor.js stands the
+        // four Ctrl ones down while the caret is in a field: kit/keys.js fires
+        // Ctrl chords through typing on purpose, and Ctrl+C in the EXPORT
+        // OUTPUT box belongs to the box.
+        { key: 'a', ctrl: true, action: 'edit:select-all', prevent: true },
+        { key: 'c', ctrl: true, action: 'edit:copy', prevent: true },
+        { key: 'x', ctrl: true, action: 'edit:cut', prevent: true },
+        { key: 'v', ctrl: true, action: 'edit:paste', prevent: true },
+        // Both, because both are what people press for "get rid of this", and
+        // Backspace still walks history in a browser if left alone.
+        { key: 'Delete', action: 'edit:delete', prevent: true },
+        { key: 'Backspace', action: 'edit:delete', prevent: true },
+        // No prevent: Escape in a text field means cancel, and the kit leaves
+        // it to the field.
+        { key: 'Escape', action: 'edit:select-none' },
+
         // ── project ── desktop only; project-ui.js is the only listener that
         // offers these, and only when there is a filesystem
         { key: 's', ctrl: true, action: 'project:save', prevent: true },
@@ -45,6 +62,7 @@
         { key: 'c', action: 'tool:ellipse' },
         { key: 'i', action: 'tool:pick' },
         { key: 'o', action: 'tool:origin' },
+        { key: 's', action: 'tool:select' },
 
         // ── view ──
         { key: 'f', action: 'view:zoom-fit' },

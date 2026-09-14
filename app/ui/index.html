@@ -71,6 +71,14 @@
                     <div class="menu-drop" role="menu">
                         <button data-action="edit:undo">Undo<i>Ctrl+Z</i></button>
                         <button data-action="edit:redo">Redo<i>Ctrl+Shift+Z</i></button>
+                        <hr>
+                        <button data-action="edit:cut" title="Lift the selected pixels onto the clipboard">Cut<i>Ctrl+X</i></button>
+                        <button data-action="edit:copy" title="Copy the selected pixels">Copy<i>Ctrl+C</i></button>
+                        <button data-action="edit:paste" title="Put the clipboard down at the selection's corner">Paste<i>Ctrl+V</i></button>
+                        <button data-action="edit:delete" title="Clear the selected pixels">Delete<i>Del</i></button>
+                        <hr>
+                        <button data-action="edit:select-all">Select All<i>Ctrl+A</i></button>
+                        <button data-action="edit:select-none">Deselect<i>Esc</i></button>
                     </div>
                 </div>
                 <div class="menu">
@@ -246,6 +254,7 @@
                     <button class="tool-btn" data-tool="ellipse" title="Ellipse (C)">&#9711;</button>
                     <button class="tool-btn" data-tool="pick" title="Pick color (I, or alt+click)">&#9906;</button>
                     <button class="tool-btn" data-tool="origin" title="Set origin point (O)">&#8982;</button>
+                    <button class="tool-btn" data-tool="select" title="Select a region — drag to mark, drag inside to move (S)">&#9744;</button>
                 </div>
                 <div id="tool-readout" class="tool-readout"></div>
             </details>
@@ -472,13 +481,31 @@
                 <dt><kbd>C</kbd></dt><dd>Ellipse</dd>
                 <dt><kbd>I</kbd></dt><dd>Pick a colour off the canvas &mdash; or alt-click</dd>
                 <dt><kbd>O</kbd></dt><dd>Set the origin</dd>
+                <dt><kbd>S</kbd></dt><dd>Select a region &mdash; drag to mark it, drag inside to move it</dd>
             </dl>
+
+            <div class="sub-label">the selection</div>
+            <dl class="ref-grid">
+                <dt><kbd>Ctrl</kbd><kbd>A</kbd></dt><dd>Select the whole frame</dd>
+                <dt><kbd>Esc</kbd></dt><dd>Drop the selection &mdash; so does picking another tool</dd>
+                <dt><kbd>Ctrl</kbd><kbd>C</kbd></dt><dd>Copy the selected pixels</dd>
+                <dt><kbd>Ctrl</kbd><kbd>X</kbd></dt><dd>Cut them</dd>
+                <dt><kbd>Ctrl</kbd><kbd>V</kbd></dt><dd>Paste at the selection's corner, or the frame's</dd>
+                <dt><kbd>Del</kbd></dt><dd>Clear them, leaving transparent</dd>
+                <dt><kbd>&larr;&uarr;&darr;&rarr;</kbd></dt><dd>Move the selection a pixel</dd>
+            </dl>
+            <p>The clipboard holds pixels rather than a rectangle: pasting puts
+                the coloured cells down and leaves whatever is under the
+                transparent ones. It survives changing frame, changing sprite
+                and changing tool, so a hand drawn once can go on every facing.
+                Moving something off the edge loses what goes over &mdash; the
+                arrows wrap the whole frame, but a selection does not.</p>
 
             <div class="sub-label">frames</div>
             <dl class="ref-grid">
                 <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next frame</dd>
                 <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
-                <dt><kbd>&larr;&uarr;&darr;&rarr;</kbd></dt><dd>Nudge the drawing a pixel; it wraps at the edge</dd>
+                <dt><kbd>&larr;&uarr;&darr;&rarr;</kbd></dt><dd>Nudge the whole drawing a pixel, wrapping at the edge &mdash; with a selection up they move that instead</dd>
                 <dt><kbd>H</kbd> <kbd>V</kbd></dt><dd>Flip across the vertical / horizontal</dd>
                 <dt><kbd>R</kbd></dt><dd>Rotate 90&deg;, square frames only</dd>
             </dl>
@@ -578,6 +605,7 @@
     <script src="../core/tier.js"></script>
     <script src="../core/color.js"></script>
     <script src="../core/draw.js"></script>
+    <script src="../core/select.js"></script>
     <script src="../core/sheet.js"></script>
     <script src="../core/mesh.js"></script>
     <script src="../core/templates.js"></script>

@@ -40,6 +40,14 @@
         'file:export': () => document.getElementById('export-btn').click(),
         'edit:undo': () => E().undo(),
         'edit:redo': () => E().redo(),
+        // Through the editor's published seam, exactly as undo and redo are,
+        // rather than the menu reaching into the module scope.
+        'edit:cut': () => E().cut(),
+        'edit:copy': () => E().copy(),
+        'edit:paste': () => E().paste(),
+        'edit:delete': () => E().deleteSelection(),
+        'edit:select-all': () => E().selectAll(),
+        'edit:select-none': () => E().deselect(),
         'view:zoom-in': () => document.getElementById('zoom-in').click(),
         'view:zoom-out': () => document.getElementById('zoom-out').click(),
         'view:zoom-fit': () => document.getElementById('zoom-fit').click(),
@@ -57,6 +65,13 @@
     function state(action) {
         if (action === 'edit:undo') return { disabled: !E().canUndo() };
         if (action === 'edit:redo') return { disabled: !E().canRedo() };
+        // The four that need something selected, and the one that needs
+        // something copied. Greying them is the menu saying what the toast
+        // would have had to say after the click.
+        if (action === 'edit:cut' || action === 'edit:copy'
+            || action === 'edit:delete' || action === 'edit:select-none')
+            return { disabled: !E().hasSelection() };
+        if (action === 'edit:paste') return { disabled: !E().hasClipboard() };
         return null;
     }
 

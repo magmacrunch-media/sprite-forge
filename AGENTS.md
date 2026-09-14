@@ -47,7 +47,9 @@ the same `core/` serves the desktop build, the web demo, and the export
 targets, none of which share a DOM.
 
 Load order matters and is fixed in `ui/index.html` — `tier` → `color` → `draw`
-→ `sheet` → `mesh` → `templates` → `editor`. `mesh.js` is grouped beside `sheet.js` because
+→ `select` → `sheet` → `mesh` → `templates` → `editor`. `select.js` depends on
+nothing and is grouped beside `draw.js` because the two are the what-a-tool-does
+pair: one plots shapes, the other lifts regions. `mesh.js` is grouped beside `sheet.js` because
 the two are the pixels-to-bitmap pair and deal in the same `ImageData`; it depends on no
 other core module, so its place is a grouping and not a sequence. `tier.js` is first in `core/` because it
 reads `SpriteForge.fs`, which `ui/bridge.js` decides in `<head>`, and it holds
@@ -163,6 +165,50 @@ all — it is a `.side-block` above them, always visible, because every tool has
 single-key shortcut and a swatch has none, so it is the one panel that cannot
 afford to be the thing you just closed. Keep it small; that is why THEME &
 REPLACE is its own section rather than living under it.
+
+## The selection is pixels, and it is not a layer
+
+`core/select.js` is the geometry and `ui/editor.js` is the mouse. Four decisions
+are worth knowing before changing either, because each could sensibly have gone
+the other way and three of them are invisible until they are wrong.
+
+**A clip is pixels, not a rectangle of paint.** `stamp()` skips the transparent
+cells of a clip, so pasting a head leaves what was around it alone. The
+alternative makes every paste a hole-punch the size of the marquee. `Del` is how
+you punch a hole, and it says so on the Reference card.
+
+**A move clips; it does not wrap.** The arrow keys with no selection still
+rotate the whole frame — that is `shiftFrame`, it predates this, and wrapping is
+the point of it. Dragging a region off the edge loses what goes over. Same keys,
+different meaning, and the dashed rectangle on the canvas is what tells them
+apart.
+
+**The pixels leave the frame once per drag, not once per mousemove.** On
+mousedown the region is lifted into `dragClip` and the frame beneath is kept as
+`dragBase`; nothing is committed until mouseup. Committing each step would clamp
+the region against the edge at every position, so dragging out past the boundary
+and back would eat it a column at a time — and it would look like a rendering
+bug rather than a lost column.
+
+**Picking another tool drops the marquee.** There are no layers, so nothing
+clips a pencil stroke to a selection; an outline still drawn while the pencil
+ignores it is a promise the editor does not keep. The *clipboard* is not
+dropped — it outlives the selection, the frame and the sprite, which is what
+makes it worth having over a duplicate button.
+
+That last one is why the tool buttons now go through `setTool()` instead of
+carrying their own copy of its two lines. The copy was harmless for as long as
+picking a tool meant nothing but an assignment. The moment it acquired a
+consequence, the button and the keyboard shortcut disagreed, and only the
+keyboard was right.
+
+`kit/keys.js` fires Ctrl chords through typing on purpose — Ctrl+Z in a field is
+unambiguous. Four of these are the exception, and `editor.js` stands them down
+itself rather than the kit growing a flag: `Ctrl+C` with the caret in the EXPORT
+OUTPUT box is a person copying that snippet, and answering it with a pixel copy
+would take the textarea's own clipboard away from them. The guard returns
+*before* `preventDefault`, or a suppressed `Ctrl+V` would be a paste that never
+arrives.
 
 ## The Godot target writes source, not an image
 
