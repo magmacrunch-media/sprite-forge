@@ -198,6 +198,12 @@ loadSpriteSheet(src, { frameWidth: 16, frameHeight: 24, originX: 8, originY: 24 
 This is a shared contract across four repos, specified in adenosine's
 `packages/rpg/API.md`. It is not this repo's to change unilaterally.
 
+## Support This Project
+
+If you find sprite-forge useful, consider supporting its development:
+
+[![Sponsor](https://img.shields.io/badge/%E2%9D%A4_Sponsor-pink)](https://github.com/sponsors/magmacrunch-media)
+
 ## Licence
 
 [PolyForm Noncommercial 1.0.0](LICENSE) — SPDX `PolyForm-Noncommercial-1.0.0`.
