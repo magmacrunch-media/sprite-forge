@@ -87,7 +87,7 @@ and a refresh no longer costs you the work. What needs a real file is saving to
 *the path you opened*, which is the row below it, and that is the row DISK
 exists to serve.
 
-### The PWA build runs at DISK
+### The PWA runs at DISK
 
 So an installed PWA has New, Open, Save and Save As against a real file, and
 the dirty marker that goes with them. The sidebar's SAVE and OPEN buttons and
@@ -100,7 +100,7 @@ never discloses a location, so the doc name shows the file's name and its
 tooltip cannot show more. The first save of a session asks where, and every
 save after it is silent, which is the API's rule rather than a choice.
 
-### The PWA build
+### Assembling the PWA
 
 ```
 npm run pwa          # assemble into pwa/dist
