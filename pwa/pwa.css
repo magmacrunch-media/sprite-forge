@@ -1,0 +1,32 @@
+/* pwa.css — the PWA build's overrides, loaded last.
+ *
+ * Carried for the same reason :root.desktop exists in ui/style.css: app/shell/
+ * is byte-identical across every build, so the parts of it that only mean
+ * something on magmacrunch.com get dropped by the build that is not the
+ * website rather than by editing the shell.
+ *
+ * Two things go, and they are exactly the two .desktop hides:
+ *
+ *   .tool-nav   the "creative utilities" back link. It points at ../utilities/,
+ *               which is the website's index. On a separate origin that path
+ *               does not exist at all, so the link is not merely redundant, it
+ *               is broken.
+ *   footer      the site footer. A standalone window is not a web page and has
+ *               no site to footer.
+ *
+ * Deliberately unconditional rather than behind @media (display-mode:
+ * standalone). The bundle IS the product on its own origin, so the chrome is
+ * wrong in an installed window and equally wrong in a tab pointed at the same
+ * files. Gating it on display-mode would leave the broken back link visible in
+ * exactly the case where somebody is most likely to click it.
+ *
+ * Note this is NOT the .desktop class. That one also turns the header into a
+ * toolbar and lights up the in-page menu bar, both of which need the Tauri
+ * backend behind them, and tier.js keeps `menubar` full-only for that reason.
+ * The PWA is a LITE build wearing its own window, not a desktop build.
+ */
+
+.tool-nav,
+footer {
+    display: none;
+}

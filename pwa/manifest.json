@@ -1,0 +1,29 @@
+{
+  "name": "SPRITE//FORGE",
+  "short_name": "sprite forge",
+  "description": "Pixel-art sprite and animation editor",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080808",
+  "theme_color": "#ff3d6e",
+  "orientation": "any",
+  "categories": ["graphics", "developer", "utilities"],
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "icons/icon-256.png",
+      "type": "image/png",
+      "sizes": "256x256"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

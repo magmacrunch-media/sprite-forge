@@ -43,12 +43,15 @@ reduced in a browser at
 - [x] Onion skin with depth — up to four frames each way, tinted rose behind and
       cyan ahead, wrapping round the loop
 
-## Two builds, one codebase
+## Three destinations, two tiers
 
-The same `app/` directory is both the page on magmacrunch.com and the desktop
-bundle. Which half you get is decided at load: with no Tauri behind it there is
-no filesystem, and [`app/core/tier.js`](app/core/tier.js) turns that one
-boolean into the table below.
+The same `app/` directory is the page on magmacrunch.com, the desktop bundle
+and the installable PWA. Which half you get is decided at load: with no Tauri
+behind it there is no filesystem, and [`app/core/tier.js`](app/core/tier.js)
+turns that one boolean into the table below.
+
+Three destinations, but still only two tiers. The PWA is a LITE build in its
+own window, not a third thing to keep in step.
 
 | | LITE (web) | FULL (desktop) |
 |---|---|---|
@@ -74,6 +77,38 @@ Note where the `.forge` line falls. Saving a project out and opening one back
 are a download and a file picker — no disk, no window — so the browser has
 them, and a refresh no longer costs you the work. What needs a filesystem is
 saving to *the path you opened*, which is the row below it.
+
+### The PWA build
+
+```
+npm run pwa          # assemble into pwa/dist
+npm run check:pwa    # validate coverage, write nothing
+npm run serve:pwa    # preview it on localhost:3301
+```
+
+[`scripts/package-pwa.mjs`](scripts/package-pwa.mjs) assembles a standalone,
+installable copy into `pwa/dist` (gitignored). It is a third assembler beside
+`sync-web.mjs` rather than a flag on it, because the two resolve the shared
+parts in opposite directions: the website build leaves `../shell/` and
+`../fonts/` alone so they land on the website's own copies, and this one
+carries both and rewrites the paths down a level. That makes the PWA much
+closer to the Tauri bundle than to the website page.
+
+Served from its own origin, deliberately, so a Store listing's uptime does not
+depend on the machine serving magmacrunch.com. Every path in
+[`pwa/manifest.json`](pwa/manifest.json) is relative, so the same bundle works
+from any origin and from a local preview.
+
+Two things are generated rather than kept by hand, and both are in `pwa/sw.js`
+as tokens that `package-pwa.mjs` substitutes: the precache list, derived from
+the tree that actually shipped, and the cache name, a digest of those files'
+contents. A changed build therefore gets a new cache with nothing bumped by
+hand. The worker does not call `skipWaiting`, because taking over a page that
+holds unsaved frames is worse than a cache that is one session stale.
+
+The build refuses rather than warns. A `<script>` added to `index.html` and not
+to the copy list is a bundle that 404s in a window with no devtools open, so
+coverage is checked at assembly time and again in the suite.
 
 ## Installing it
 

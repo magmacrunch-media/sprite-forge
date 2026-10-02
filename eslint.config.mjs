@@ -78,8 +78,12 @@ export default [
     {
         // app/kit/ and tests/kit/ are vendored from magma-kit and linted
         // there; app/shell/ is vendored from the website the same way.
+        // pwa/dist/ is assembled by scripts/package-pwa.mjs out of files that
+        // are linted at their source, so linting the copies would report every
+        // finding twice and grade a generated sw.js whose two fields are
+        // substituted text rather than anything anyone wrote.
         ignores: ['node_modules/**', 'desktop/**', '.claude/**', 'app/shell/**',
-            'app/kit/**', 'tests/kit/**'],
+            'app/kit/**', 'tests/kit/**', 'pwa/dist/**'],
     },
     {
         files: ['app/**/*.js'],
@@ -87,6 +91,33 @@ export default [
             ecmaVersion: 'latest',
             sourceType: 'script',
             globals: browser,
+        },
+        rules,
+    },
+    {
+        // pwa/ is a fourth kind: classic scripts like app/, but running in a
+        // service worker rather than a page, so `self` and `caches` are the
+        // globals and `window` is absent from one of the two files. Shipped
+        // code, so it is linted; without this block it matched no `files`
+        // pattern and was the only runtime JS in the repo nothing graded.
+        files: ['pwa/*.js'],
+        languageOptions: {
+            ecmaVersion: 'latest',
+            sourceType: 'script',
+            globals: {
+                ...browser,
+                self: 'readonly', caches: 'readonly', Response: 'readonly',
+                /* sw.js is a template: package-pwa.mjs substitutes this for the
+                   precache array. Declared rather than written as a valid-JS
+                   placeholder on purpose. `var PRECACHE = [];` would lint
+                   without this line and would also mean that a worker which
+                   somehow reached a browser unsubstituted had no precache list
+                   and therefore no offline, quietly. An undefined identifier
+                   throws on the first install instead, which is the failure
+                   this repo prefers. package-pwa.mjs's fill() refuses to emit
+                   an unsubstituted worker in the first place. */
+                __PRECACHE__: 'readonly',
+            },
         },
         rules,
     },
