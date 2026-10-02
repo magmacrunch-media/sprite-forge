@@ -23,7 +23,7 @@
  * Note this is NOT the .desktop class. That one also turns the header into a
  * toolbar and lights up the in-page menu bar, both of which need the Tauri
  * backend behind them, and tier.js keeps `menubar` full-only for that reason.
- * The PWA is a LITE build wearing its own window, not a desktop build.
+ * The PWA runs at the DISK tier: real files through ui/fsa.js, and no window.
  */
 
 .tool-nav,

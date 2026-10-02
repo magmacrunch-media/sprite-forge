@@ -36,9 +36,18 @@ test('index.html loads kit/ then core/, before ui/', () => {
     // markup to the kit. The wrong way round is a Mac build showing Ctrl.
     ok(srcs.indexOf('platform.js') < srcs.indexOf('menu.js'),
         'platform.js relabels before menu.js reads a label');
+
+    // fsa.js installs a filesystem only when Tauri did not, and core/tier.js
+    // reads the result to decide the build. Both edges of that are ordering:
+    // after bridge.js or it overwrites the real one, before tier.js or the
+    // tier is computed from an fs that does not exist yet and the PWA is LITE.
+    ok(srcs.indexOf('bridge.js') < srcs.indexOf('fsa.js'),
+        'fsa.js loads after bridge.js, so Tauri wins when it is there');
+    ok(srcs.indexOf('fsa.js') < srcs.indexOf('../core/tier.js'),
+        'fsa.js loads before tier.js, which reads the fs it installs');
 });
 
-const suites = ['./tier.test.mjs', './project.test.mjs', './color.test.mjs', './draw.test.mjs', './select.test.mjs', './frames.test.mjs', './transform.test.mjs', './sheet.test.mjs', './mesh.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './godot.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs', './project-ui.test.mjs', './sprites-ui.test.mjs', './targets-ui.test.mjs', './platform.test.mjs', './keybindings.test.mjs', './version.test.mjs', './sync-web.test.mjs', './package-pwa.test.mjs', './kit-integrity.test.mjs'];
+const suites = ['./tier.test.mjs', './project.test.mjs', './color.test.mjs', './draw.test.mjs', './select.test.mjs', './frames.test.mjs', './transform.test.mjs', './sheet.test.mjs', './mesh.test.mjs', './templates.test.mjs', './gamemaker.test.mjs', './engines.test.mjs', './godot.test.mjs', './targets-store.test.mjs', './palettes.test.mjs', './png-decode.test.mjs', './project-ui.test.mjs', './sprites-ui.test.mjs', './targets-ui.test.mjs', './platform.test.mjs', './keybindings.test.mjs', './version.test.mjs', './fsa.test.mjs', './sync-web.test.mjs', './package-pwa.test.mjs', './kit-integrity.test.mjs'];
 // Awaited because project-ui.test.mjs drives async Save calls. The sync suites
 // return undefined and are unaffected; without it the tally below would print
 // before the async one had finished counting.

@@ -43,40 +43,62 @@ reduced in a browser at
 - [x] Onion skin with depth — up to four frames each way, tinted rose behind and
       cyan ahead, wrapping round the loop
 
-## Three destinations, two tiers
+## Three tiers, one codebase
 
 The same `app/` directory is the page on magmacrunch.com, the desktop bundle
-and the installable PWA. Which half you get is decided at load: with no Tauri
-behind it there is no filesystem, and [`app/core/tier.js`](app/core/tier.js)
-turns that one boolean into the table below.
+and the installable PWA. Which of it you get is decided at load, by what kind
+of filesystem is behind the page, and
+[`app/core/tier.js`](app/core/tier.js) turns that into the table below.
 
-Three destinations, but still only two tiers. The PWA is a LITE build in its
-own window, not a third thing to keep in step.
-
-| | LITE (web) | FULL (desktop) |
+| Tier | Behind it | Where |
 |---|---|---|
-| Tools, palette, shade ramps, REPLACE | yes | yes |
-| Frames, onion skin, animation preview | yes | yes |
-| Surface preview — sphere, cylinder, billboard | yes | yes |
-| Character templates with named slots | yes | yes |
-| Multi-sprite projects over one palette | yes | yes |
-| Colour themes | yes | yes |
-| Transform, origin, canvas resize, undo | yes | yes |
-| PNG sheet import and export | yes | yes |
-| `.forge` project files — save one out, open one back | yes | yes |
-| New / Open / Save / Save As against a path, and the dirty marker | — | yes |
-| TARGETS — export straight into a game repo | — | yes |
-| The menu bar | — | yes |
+| LITE | nothing | a plain tab, and any browser without the File System Access API, iOS Safari included |
+| DISK | [`app/ui/fsa.js`](app/ui/fsa.js), real files through picked handles | the installable PWA, and any Chromium tab |
+| FULL | Tauri, a path-keyed filesystem and a window | the desktop build |
 
-The desktop-only rows each need a filesystem or a window. That is the only
-reason a row is allowed there: LITE is a strict upgrade on what the web tool
-could already do, never the desktop build made to look better by taking
-something away from it.
+DISK exists because `projects` was never really about Rust. Saving back to the
+file you opened needs a handle you can keep, which a browser has had since the
+File System Access API; what it still has not got is a directory it can hold
+across sessions plus a per-machine config file, which is TARGETS, or a window,
+which is the menu bar. So one row moved and two did not.
+
+| | LITE | DISK | FULL |
+|---|---|---|---|
+| Tools, palette, shade ramps, REPLACE | yes | yes | yes |
+| Frames, onion skin, animation preview | yes | yes | yes |
+| Surface preview — sphere, cylinder, billboard | yes | yes | yes |
+| Character templates with named slots | yes | yes | yes |
+| Multi-sprite projects over one palette | yes | yes | yes |
+| Colour themes | yes | yes | yes |
+| Transform, origin, canvas resize, undo | yes | yes | yes |
+| PNG sheet import and export | yes | yes | yes |
+| `.forge` project files — save one out, open one back | yes | yes | yes |
+| New / Open / Save / Save As against a path, and the dirty marker | — | yes | yes |
+| TARGETS — export straight into a game repo | — | — | yes |
+| The menu bar | — | — | yes |
+
+A row earns its tier by needing something that tier has. That is the only
+reason a row is allowed above LITE: every tier is a strict upgrade on the one
+below, never a lower build made worse so a higher one looks better.
 
 Note where the `.forge` line falls. Saving a project out and opening one back
-are a download and a file picker — no disk, no window — so the browser has
-them, and a refresh no longer costs you the work. What needs a filesystem is
-saving to *the path you opened*, which is the row below it.
+are a download and a file picker — no disk, no window — so even LITE has them,
+and a refresh no longer costs you the work. What needs a real file is saving to
+*the path you opened*, which is the row below it, and that is the row DISK
+exists to serve.
+
+### The PWA build runs at DISK
+
+So an installed PWA has New, Open, Save and Save As against a real file, and
+the dirty marker that goes with them. The sidebar's SAVE and OPEN buttons and
+the Ctrl+S / Ctrl+O / Ctrl+N shortcuts are wired in every tier and dispatch by
+capability, so none of that needed new UI; the File menu is still FULL only,
+because the menu bar is.
+
+What the browser cannot give back is the path. The API hands out handles and
+never discloses a location, so the doc name shows the file's name and its
+tooltip cannot show more. The first save of a session asks where, and every
+save after it is silent, which is the API's rule rather than a choice.
 
 ### The PWA build
 

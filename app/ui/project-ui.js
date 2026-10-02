@@ -464,14 +464,22 @@
     setInterval(refresh, 400);
     refresh();
 
-    /* The LITE build has no Rust close guard, so it needs the browser's.
-       The desktop build has magma_kit::dirty::confirm_close, driven by the
-       setDirty push in refresh() above, and must NOT also do this —
-       beforeunload in a WebView produces a second, OS-drawn prompt.
+    /* A build with no Rust close guard needs the browser's. The desktop build
+       has magma_kit::dirty::confirm_close, driven by the setDirty push in
+       refresh() above, and must NOT also do this — beforeunload in a WebView
+       produces a second, OS-drawn prompt.
 
        Gated on the filesystem and not on the tier: the question is
-       whether a Rust guard exists, which is not a product decision. */
-    if (!fs()) {
+       whether a Rust guard exists, which is not a product decision.
+
+       ASKING FOR setDirty, NOT MERELY FOR AN fs. Those were the same question
+       until ui/fsa.js, which gives a browser a real filesystem and no Rust
+       whatsoever; a bare `if (!fs())` then skipped this guard for the PWA and
+       left an installed window closing on unsaved frames with no prompt at
+       all. setDirty is the right thing to ask for because it IS the handle to
+       the native guard: the build that has one is exactly the build that can
+       be told the document is dirty. */
+    if (!fs() || !fs().setDirty) {
         window.addEventListener('beforeunload', function (e) {
             if (!isDirty()) return;
             e.preventDefault();

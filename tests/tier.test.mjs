@@ -1,4 +1,4 @@
-import { test, eq, ok } from './assert.mjs';
+import { test, eq, ok, throws } from './assert.mjs';
 
 /* The LITE/FULL split is a product decision, so the thing worth asserting is
    the decision, not the mechanism: that LITE is a strict subset, that the
@@ -10,6 +10,7 @@ export default function (SF) {
 
     const lite = T.create(false);
     const full = T.create(true);
+    const disk = T.create('disk');
 
     test('the tier is decided by whether there is a filesystem behind it', () => {
         eq(full.name, 'full', 'a backed build is FULL');
@@ -18,9 +19,25 @@ export default function (SF) {
         ok(lite.isLite && !lite.isFull, 'lite is not also full');
     });
 
-    test('FULL has everything LITE has', () => {
+    /* The booleans predate the middle tier and still mean what they meant, so
+       every call site and suite written against them keeps working. */
+    test('a tier can be named, and the old booleans still answer', () => {
+        eq(T.create('lite').name, 'lite', 'named lite');
+        eq(T.create('full').name, 'full', 'named full');
+        eq(disk.name, 'disk', 'named disk');
+        ok(disk.isDisk && !disk.isLite && !disk.isFull, 'disk is only disk');
+    });
+
+    /* A tier nobody defined answering `false` to every `has` would read on
+       screen as a build that had lost its features, not as a typo. */
+    test('an unknown tier is refused rather than answered', () => {
+        throws(() => T.create('deluxe'), 'unknown tier', 'a tier that does not exist');
+    });
+
+    test('the tiers are a ladder: LITE then DISK then FULL', () => {
         for (const cap of Object.keys(T.CAPABILITIES)) {
-            ok(!lite.has(cap) || full.has(cap), `full has ${cap} if lite does`);
+            ok(!lite.has(cap) || disk.has(cap), `disk has ${cap} if lite does`);
+            ok(!disk.has(cap) || full.has(cap), `full has ${cap} if disk does`);
         }
     });
 
@@ -57,5 +74,27 @@ export default function (SF) {
             ok(!lite.has(cap), `LITE does not have ${cap}`);
             ok(full.has(cap), `FULL has ${cap}`);
         }
+    });
+
+    /* THE MIDDLE TIER'S WHOLE CLAIM, ASSERTED. A browser with picked handles
+       can write back to the file it opened and cannot do the other two: TARGETS
+       wants a directory it can hold across sessions plus a per-machine config
+       file, and the menu bar wants a window. ui/fsa.js provides the methods for
+       `projects` and deliberately omits the rest, so if `targets` ever moved
+       down to 'disk' the panel would appear and then fail on its first call to
+       a method that is not there. This is where that gets caught. */
+    test('DISK is projects, and is not TARGETS or the menu bar', () => {
+        ok(disk.has('projects'), 'a picked handle is enough to save back to a file');
+        ok(!disk.has('targets'), 'no directory handle and no per-machine config');
+        ok(!disk.has('menubar'), 'no window');
+    });
+
+    /* The same rule the LITE row is held to, one tier up: the middle tier was
+       added to GIVE the browser something, never to take anything away. */
+    test('DISK never regresses from LITE', () => {
+        const LIVE_TODAY = ['draw', 'tools', 'frames', 'onion', 'animation',
+            'templates', 'palette', 'replace', 'transform', 'origin',
+            'canvasSize', 'undo', 'export', 'import', 'sprites', 'themes'];
+        for (const cap of LIVE_TODAY) ok(disk.has(cap), `DISK keeps ${cap}`);
     });
 }

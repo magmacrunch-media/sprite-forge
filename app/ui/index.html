@@ -31,6 +31,10 @@
     <script src="../kit/dom.js"></script>
     <script src="../kit/menu.js"></script>
     <script src="bridge.js"></script>
+    <!-- Immediately after bridge.js and well before core/tier.js, which is the
+         only ordering this file has: it stands aside if Tauri already installed
+         a filesystem, and tier.js reads the result to decide the build. -->
+    <script src="fsa.js"></script>
 </head>
 <body>
     <div class="mobile-notice">
