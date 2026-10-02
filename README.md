@@ -108,29 +108,33 @@ npm run check:pwa    # validate coverage, write nothing
 npm run serve:pwa    # preview it on localhost:3301
 ```
 
-[`scripts/package-pwa.mjs`](scripts/package-pwa.mjs) assembles a standalone,
-installable copy into `pwa/dist` (gitignored). It is a third assembler beside
-`sync-web.mjs` rather than a flag on it, because the two resolve the shared
-parts in opposite directions: the website build leaves `../shell/` and
-`../fonts/` alone so they land on the website's own copies, and this one
-carries both and rewrites the paths down a level. That makes the PWA much
-closer to the Tauri bundle than to the website page.
+**The assembler lives in magma-kit**, at `scripts/package-pwa.mjs`, and is
+reached by relative path the way `sync.mjs` is. A build script copied into
+eight repos is eight copies to keep in step; one is one, and a fix reaches
+every app the next time it builds. The service worker, the registration script
+and the overrides stylesheet come from there too, so **the only PWA file this
+repo owns is [`pwa/manifest.json`](pwa/manifest.json)**: the name, the colours
+and which icons to use. It writes `pwa/dist`, which is gitignored.
+
+That is also why `check:pwa` is not part of `npm run check`. It needs the
+magma-kit sibling, exactly like `check:kit`, and `npm run check` is meant to
+pass from this checkout alone.
+
+It is a separate assembler from `sync-web.mjs` rather than a flag on it,
+because the two resolve the shared parts in opposite directions: the website
+build leaves `../shell/` and `../fonts/` alone so they land on the website's
+own copies, and the PWA build carries both and rewrites the paths down a level,
+because a standalone origin has no website underneath. That makes the PWA much
+closer to the Tauri bundle than to the website page, and is why it needs no
+cache-buster stamps.
 
 Served from its own origin, deliberately, so a Store listing's uptime does not
-depend on the machine serving magmacrunch.com. Every path in
-[`pwa/manifest.json`](pwa/manifest.json) is relative, so the same bundle works
-from any origin and from a local preview.
+depend on the machine serving magmacrunch.com. Every path in the manifest is
+relative, so the same bundle works from any origin and from a local preview.
 
-Two things are generated rather than kept by hand, and both are in `pwa/sw.js`
-as tokens that `package-pwa.mjs` substitutes: the precache list, derived from
-the tree that actually shipped, and the cache name, a digest of those files'
-contents. A changed build therefore gets a new cache with nothing bumped by
-hand. The worker does not call `skipWaiting`, because taking over a page that
-holds unsaved frames is worse than a cache that is one session stale.
-
-The build refuses rather than warns. A `<script>` added to `index.html` and not
-to the copy list is a bundle that 404s in a window with no devtools open, so
-coverage is checked at assembly time and again in the suite.
+The build refuses rather than warns. A `<script>` added to `index.html` that
+nothing copies is a bundle that 404s in a window with no devtools open, so
+coverage is checked at assembly time. The kit's own suite covers the rest.
 
 ## Installing it
 

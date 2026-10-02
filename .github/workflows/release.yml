@@ -103,6 +103,12 @@ jobs:
         working-directory: sprite-forge
         run: npm run check:kit
 
+      # Also only answerable here: the PWA assembler lives in magma-kit and is
+      # reached by relative path, so this needs the sibling the same way.
+      - name: Check the PWA still assembles
+        working-directory: sprite-forge
+        run: npm run check:pwa
+
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:

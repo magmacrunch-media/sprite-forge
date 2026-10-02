@@ -7,13 +7,13 @@
   "scripts": {
     "test": "node tests/run.mjs",
     "lint": "eslint .",
-    "check": "npm run lint && npm run test && npm run check:pwa",
+    "check": "npm run lint && npm run test",
     "sync-kit": "node ../magma-kit/scripts/sync.mjs .",
     "check:kit": "node ../magma-kit/scripts/sync.mjs --check .",
     "sync-web": "node scripts/sync-web.mjs",
     "check:web": "node scripts/sync-web.mjs --check",
-    "pwa": "node scripts/package-pwa.mjs",
-    "check:pwa": "node scripts/package-pwa.mjs --check",
+    "pwa": "node ../magma-kit/scripts/package-pwa.mjs .",
+    "check:pwa": "node ../magma-kit/scripts/package-pwa.mjs --check .",
     "serve:pwa": "npx serve pwa/dist -l 3301",
     "serve": "npx serve app -l 3300"
   },
